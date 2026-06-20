@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Vish Amrit - Tag Arena</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background-color: #000;
+            touch-action: none; font-family: 'Segoe UI', sans-serif;
+            user-select: none; -webkit-user-select: none;
+        }
+        #gameCanvas { display: block; width: 100%; height: 100%; }
+        
+        .joystick-zone {
+            position: absolute; bottom: 20px; width: 120px; height: 120px;
+            border-radius: 50%; background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3); pointer-events: auto;
+        }
+        #moveJoystick { left: 20px; }
+        .joystick-knob {
+            position: absolute; width: 40px; height: 40px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5); top: 50%; left: 50%;
+            transform: translate(-50%, -50%); pointer-events: none;
+        }
+        #abilityBtn {
+            position: absolute; bottom: 30px; right: 30px; width: 80px; height: 80px;
+            border-radius: 50%; background: rgba(239, 68, 68, 0.7);
+            border: 2px solid rgba(255, 255, 255, 0.5); color: white;
+            font-weight: bold; display: flex; align-items: center; justify-content: center;
+            font-size: 14px; text-align: center; pointer-events: auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        #abilityBtn:active { transform: scale(0.95); background: rgba(239, 68, 68, 0.9); }
+        .cooldown-overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6); border-radius: 50%; display: none;
+            align-items: center; justify-content: center; font-size: 18px;
+        }
+        .ui-layer { pointer-events: none; }
+        .interactive { pointer-events: auto; }
+        .map-banner { animation: slideDown 3s ease-in-out forwards; }
+        @keyframes slideDown {
+            0% { transform: translateY(-100%); opacity: 0; }
+            10% { transform: translateY(0); opacity: 1; }
+            90% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-100%); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="text-white">
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- UI Overlay -->
+    <div id="uiOverlay" class="absolute inset-0 ui-layer">
+        
+        <!-- Map Intro Banner -->
+        <div id="mapIntro" class="absolute top-10 left-0 right-0 flex justify-center hidden z-50">
+            <div class="bg-black bg-opacity-80 border-2 border-yellow-500 px-8 py-3 rounded-full text-center map-banner shadow-2xl">
+                <h2 class="text-yellow-400 text-sm font-bold tracking-widest uppercase">Location</h2>
+                <h1 id="mapNameDisplay" class="text-3xl font-black text-white">JUNGLE MOUNTAIN</h1>
+            </div>
+        </div>
+
+        <!-- NEW HUD LAYOUT: Stacked neatly in top-left -->
+        <div id="hud" class="hidden absolute top-4 left-4 flex flex-col gap-2 z-40 pointer-events-none">
+            
+            <!-- Role / Ability Panel -->
+            <div class="bg-gray-800 bg-opacity-80 p-3 rounded-lg border border-gray-600 backdrop-blur shadow-lg min-w-[160px]">
+                <div id="roleDisplay" class="font-bold text-lg mb-1">Role: -</div>
+                <div id="abilityDisplay" class="text-xs text-gray-300">Ability: -</div>
+                <div id="frozenCamTip" class="text-xs text-yellow-300 hidden animate-pulse font-bold mt-2 border-t border-gray-600 pt-1">
+                    ICE BLOCK:<br>Pan Camera to Spectate
+                </div>
+            </div>
+
+            <!-- Timer / Team Status Panel -->
+            <div class="bg-gray-800 bg-opacity-80 p-3 rounded-lg border border-gray-600 text-center backdrop-blur shadow-lg min-w-[160px]">
+                <div class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Time Left</div>
+                <div id="timerDisplay" class="font-bold text-2xl font-mono text-yellow-400 leading-none">02:30</div>
+                <div id="teamStatus" class="text-xs mt-2 font-mono text-white bg-gray-900 rounded px-2 py-1 shadow-inner border border-gray-700">Caught: 0/3</div>
+            </div>
+            
+        </div>
+
+        <!-- Controls -->
+        <div id="controls" class="hidden interactive z-40">
+            <div id="moveJoystick" class="joystick-zone">
+                <div id="moveKnob" class="joystick-knob"></div>
+            </div>
+            <button id="abilityBtn">
+                <span id="abilityName">Ability</span>
+                <div id="abilityCooldown" class="cooldown-overlay"></div>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Menu -->
+    <div id="menuScreen" class="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-95 interactive z-50">
+        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl max-w-md w-full text-center border border-gray-700">
+            <h1 class="text-5xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">VISH AMRIT</h1>
+            <p class="text-gray-400 mb-8 text-lg">Multiplayer Freeze Tag</p>
+            <button id="findMatchBtn" class="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-lg font-bold text-xl transition transform hover:scale-105 active:scale-95 shadow-lg">
+                Find Match Online
+            </button>
+        </div>
+    </div>
+
+    <!-- Matchmaking -->
+    <div id="matchmakingScreen" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-gray-900 bg-opacity-95 interactive z-50">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 mb-4"></div>
+        <h2 class="text-2xl font-bold text-white mb-2">Finding Players...</h2>
+        <p id="matchStatus" class="text-gray-400">Connecting to server</p>
+    </div>
+
+    <!-- Tutorial Screen -->
+    <div id="tutorialScreen" class="hidden absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 interactive backdrop-blur-sm z-50">
+        <div class="bg-gray-800 p-6 rounded-xl max-w-lg w-full border border-gray-600 shadow-2xl m-4">
+            <h2 class="text-3xl font-black mb-4 text-center border-b border-gray-700 pb-2" id="tutTitle">TUTORIAL</h2>
+            
+            <div class="space-y-4 text-sm text-gray-200">
+                <div class="flex items-center gap-4 bg-gray-900 p-3 rounded">
+                    <div class="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center font-bold text-2xl shrink-0">🎯</div>
+                    <div id="tutGoal">Goal: Survive for 2.5 minutes!</div>
+                </div>
+                
+                <div class="flex items-center gap-4 bg-gray-900 p-3 rounded">
+                    <div class="w-12 h-12 rounded bg-gray-700 flex items-center justify-center border border-gray-500 text-xs text-center font-mono shrink-0 leading-tight">WASD<br>Drag</div>
+                    <div><strong>Movement:</strong> Use on-screen Joystick or WASD/Arrow Keys on PC.</div>
+                </div>
+
+                <div class="flex items-center gap-4 bg-gray-900 p-3 rounded border-l-4 border-yellow-500">
+                    <div class="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center border-2 border-white font-bold shrink-0">✨</div>
+                    <div>
+                        <strong id="tutAbilityName" class="text-yellow-400 text-base">Ability:</strong> 
+                        <br>
+                        <span id="tutAbilityDesc">Description of ability goes here.</span>
+                    </div>
+                </div>
+                
+                <div id="tutExtra" class="bg-blue-900 bg-opacity-40 p-3 rounded text-blue-200 text-xs border border-blue-800 leading-relaxed">
+                    <strong>Tip:</strong> Touch frozen teammates to unfreeze them! If you get frozen, you can pan the camera to look around.
+                </div>
+            </div>
+
+            <button id="startGameBtn" class="mt-6 w-full py-3 bg-green-600 hover:bg-green-500 rounded-lg font-bold text-xl transition transform hover:scale-105 shadow-lg">
+                I'm Ready!
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Over -->
+    <div id="gameOverScreen" class="hidden absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 interactive z-50">
+        <div class="text-center">
+            <h1 id="winnerText" class="text-6xl font-black mb-4">TEAM WINS!</h1>
+            <p id="statsText" class="text-xl text-gray-300 mb-8">Time lasted: 00:00</p>
+            <button id="playAgainBtn" class="px-8 py-3 bg-white text-black rounded-full font-bold text-lg hover:bg-gray-200 transition shadow-xl">
+                Return to Menu
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const GAME_DURATION = 150; 
+        const MAP_SIZE = 2200;
+        
+        const ROLES = { CHASER: 'Chaser', RUNNER: 'Runner' };
+
+        const ABILITIES = {
+            BULL_SMASH: { name: 'Bull Smash', cd: 5000, desc: 'Dash forward breaking walls and capturing runners.' },
+            VINE_ATTACK: { name: 'Vine Attack', cd: 7000, desc: 'Summon an expanding trap that freezes runners on contact.' },
+            BOULDER_THROW: { name: 'Boulder Throw', cd: 6000, desc: 'Hold to aim, release to throw. Freezes runners hit.' },
+            ZAP: { name: 'Zap', cd: 7000, desc: 'Teleport a short distance instantly, even over obstacles.' },
+            GROUND_HOG: { name: 'Ground Hog', cd: 9000, desc: 'Burrow underground for 3s. Invulnerable to tag.' },
+            LEAPER: { name: 'Leaper', cd: 6000, desc: 'Jump high into the air avoiding chasers below.' }
+        };
+
+        const MAP_THEMES = {
+            SCHOOL: { bg: '#e2e8f0', obs: '#b7791f', border: '#744210', out: '#a0aec0', name: 'High School', type: 'grid' },
+            FACTORY: { bg: '#4a5568', obs: '#2d3748', border: '#1a202c', out: '#2d3748', name: 'Abandoned Factory', type: 'chunky' },
+            JUNGLE: { bg: '#2f855a', obs: '#22543d', border: '#1c4532', out: '#87ceeb', name: 'Mountain Jungle', type: 'scattered' }
+        };
+
+        // Math Utilities 
+        const dist = (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1);
+        const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
+        const rand = (min, max) => Math.random() * (max - min) + min;
+
+        // Input Handling 
+        const input = { x: 0, y: 0, ability: false, abilityJustPressed: false };
+        const keys = {};
+
+        window.addEventListener('keydown', e => { keys[e.code] = true; updateKeyboardInput(); });
+        window.addEventListener('keyup', e => { keys[e.code] = false; updateKeyboardInput(); });
+
+        function updateKeyboardInput() {
+            let dx = 0, dy = 0;
+            if (keys['KeyW'] || keys['ArrowUp']) dy -= 1;
+            if (keys['KeyS'] || keys['ArrowDown']) dy += 1;
+            if (keys['KeyA'] || keys['ArrowLeft']) dx -= 1;
+            if (keys['KeyD'] || keys['ArrowRight']) dx += 1;
+            
+            if (dx !== 0 || dy !== 0) {
+                const len = Math.hypot(dx, dy);
+                input.x = dx / len;
+                input.y = dy / len;
+            } else if (!touchActive) {
+                input.x = 0; input.y = 0;
+            }
+
+            if (keys['Space']) {
+                if (!input.ability) input.abilityJustPressed = true;
+                input.ability = true;
+            } else {
+                input.ability = false;
+            }
+        }
+
+        let touchActive = false;
+        const joystickZone = document.getElementById('moveJoystick');
+        const joystickKnob = document.getElementById('moveKnob');
+        let joyStartX = 0, joyStartY = 0, joyTouchId = null;
+
+        joystickZone.addEventListener('touchstart', e => {
+            e.preventDefault();
+            const touch = e.changedTouches[0];
+            joyTouchId = touch.identifier;
+            const rect = joystickZone.getBoundingClientRect();
+            joyStartX = rect.left + rect.width / 2;
+            joyStartY = rect.top + rect.height / 2;
+            updateJoystick(touch);
+        }, { passive: false });
+
+        joystickZone.addEventListener('touchmove', e => {
+            e.preventDefault();
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === joyTouchId) updateJoystick(e.changedTouches[i]);
+            }
+        }, { passive: false });
+
+        const resetJoystick = () => {
+            joyTouchId = null;
+            joystickKnob.style.transform = `translate(-50%, -50%)`;
+            if (!keys['KeyW'] && !keys['KeyS'] && !keys['KeyA'] && !keys['KeyD'] && 
+                !keys['ArrowUp'] && !keys['ArrowDown'] && !keys['ArrowLeft'] && !keys['ArrowRight']) {
+                input.x = 0; input.y = 0; touchActive = false;
+            }
+        };
+
+        joystickZone.addEventListener('touchend', resetJoystick);
+        joystickZone.addEventListener('touchcancel', resetJoystick);
+
+        function updateJoystick(touch) {
+            touchActive = true;
+            let dx = touch.clientX - joyStartX;
+            let dy = touch.clientY - joyStartY;
+            const maxDist = 40;
+            const d = Math.hypot(dx, dy);
+            
+            if (d > maxDist) { dx = (dx / d) * maxDist; dy = (dy / d) * maxDist; }
+            joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+            input.x = dx / maxDist; input.y = dy / maxDist;
+        }
+
+        const abilityBtn = document.getElementById('abilityBtn');
+        abilityBtn.addEventListener('touchstart', e => {
+            e.preventDefault();
+            if (!input.ability) input.abilityJustPressed = true;
+            input.ability = true;
+        }, { passive: false });
+        abilityBtn.addEventListener('touchend', e => { e.preventDefault(); input.ability = false; }, { passive: false });
+        abilityBtn.addEventListener('mousedown', e => { 
+            if (!input.ability) input.abilityJustPressed = true;
+            input.ability = true; 
+        });
+        abilityBtn.addEventListener('mouseup', () => { input.ability = false; });
+
+
+        // --- Classes ---
+        class FloatingText {
+            constructor(text, x, y, color) {
+                this.text = text;
+                this.x = x; this.y = y;
+                this.color = color;
+                this.life = 1000;
+                this.maxLife = 1000;
+            }
+            update(dt) {
+                this.life -= dt;
+                this.y -= (dt / 16) * 1;
+            }
+            draw(ctx, camX, camY) {
+                if (this.life <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+                ctx.fillStyle = this.color;
+                ctx.font = 'bold 16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(this.text, this.x - camX, this.y - camY);
+                ctx.restore();
+            }
+        }
+
+        class Obstacle {
+            constructor(x, y, w, h, theme) {
+                this.x = x; this.y = y; this.w = w; this.h = h;
+                this.theme = theme;
+                this.isDestroyed = false;
+                this.isOrganic = theme.name === MAP_THEMES.JUNGLE.name;
+            }
+            draw(ctx, camX, camY) {
+                if (this.isDestroyed) return;
+                ctx.fillStyle = this.theme.obs;
+                ctx.strokeStyle = this.theme.border;
+                ctx.lineWidth = 3;
+
+                if (this.isOrganic) {
+                    ctx.beginPath();
+                    if (ctx.roundRect) {
+                        ctx.roundRect(this.x - camX, this.y - camY, this.w, this.h, 20);
+                    } else {
+                        ctx.rect(this.x - camX, this.y - camY, this.w, this.h);
+                    }
+                    ctx.fill(); ctx.stroke();
+                } else {
+                    ctx.fillRect(this.x - camX, this.y - camY, this.w, this.h);
+                    ctx.strokeRect(this.x - camX, this.y - camY, this.w, this.h);
+                }
+            }
+        }
+
+        class Projectile {
+            constructor(x, y, vx, vy, type, owner) {
+                this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+                this.type = type; this.owner = owner;
+                this.active = true; this.life = 0;
+
+                if (type === 'boulder') {
+                    this.radius = 15; this.maxLife = 2000;
+                } else if (type === 'vine') {
+                    this.radius = 10; this.maxRadius = 80;
+                    this.vx = 0; this.vy = 0; this.maxLife = 2500;
+                }
+            }
+            update(dt, game) {
+                if (!this.active) return;
+                this.life += dt;
+                if (this.life > this.maxLife) { this.active = false; return; }
+
+                if (this.type === 'boulder') {
+                    this.x += this.vx * dt * 0.06;
+                    this.y += this.vy * dt * 0.06;
+                    
+                    for (let obs of game.obstacles) {
+                        if (!obs.isDestroyed && this.x + this.radius > obs.x && this.x - this.radius < obs.x + obs.w &&
+                            this.y + this.radius > obs.y && this.y - this.radius < obs.y + obs.h) {
+                            obs.isDestroyed = true; this.active = false; break;
+                        }
+                    }
+
+                    for (let p of game.players) {
+                        if (p !== this.owner && p.role === ROLES.RUNNER && !p.isFrozen && !p.isInvulnerable()) {
+                            if (dist(this.x, this.y, p.x, p.y) < this.radius + p.radius) {
+                                p.freeze(game); this.active = false; break;
+                            }
+                        }
+                    }
+                } else if (this.type === 'vine') {
+                    this.radius = Math.min(this.maxRadius, 10 + (this.life / 600) * this.maxRadius);
+                    for (let p of game.players) {
+                        if (p !== this.owner && p.role === ROLES.RUNNER && !p.isFrozen && !p.isInvulnerable()) {
+                            if (dist(this.x, this.y, p.x, p.y) < this.radius + p.radius) {
+                                p.freeze(game);
+                            }
+                        }
+                    }
+                }
+            }
+            draw(ctx, camX, camY) {
+                if (!this.active) return;
+                ctx.beginPath();
+                ctx.arc(this.x - camX, this.y - camY, this.radius, 0, Math.PI * 2);
+                if (this.type === 'boulder') {
+                    ctx.fillStyle = '#718096';
+                } else {
+                    ctx.fillStyle = `rgba(72, 187, 120, ${1 - this.life/this.maxLife})`;
+                }
+                ctx.fill();
+            }
+        }
+
+        class Character {
+            constructor(id, role, abilityKey, isBot, startX, startY) {
+                this.id = id; this.role = role; this.ability = abilityKey; this.isBot = isBot;
+                
+                this.x = startX;
+                this.y = startY;
+                
+                this.baseSpeed = this.role === ROLES.CHASER ? 3.7 : 4.4;
+                this.speed = this.baseSpeed;
+                this.radius = this.role === ROLES.CHASER ? 22 : 15;
+                this.color = this.role === ROLES.CHASER ? '#e53e3e' : '#3182ce'; 
+                
+                this.isFrozen = false;
+                this.dirX = 0; this.dirY = 1;
+                
+                this.cooldownTimer = 0;
+                this.maxCooldown = ABILITIES[abilityKey].cd;
+                
+                this.stateTimer = 0;
+                this.isDashing = false;
+                this.isAimingBoulder = false;
+                this.isUnderground = false;
+                this.isLeaping = false;
+            }
+
+            isInvulnerable() { return this.isUnderground || this.isLeaping; }
+
+            freeze(game) {
+                if (this.isInvulnerable()) return;
+                this.isFrozen = true;
+                this.color = '#90cdf4'; 
+                game.addText("FROZEN!", this.x, this.y - 30, '#90cdf4');
+            }
+
+            unfreeze(game) {
+                this.isFrozen = false;
+                this.color = '#3182ce';
+                game.addText("+ UNFREEZE", this.x, this.y - 30, '#48bb78');
+            }
+
+            update(dt, game) {
+                if (this.cooldownTimer > 0) this.cooldownTimer -= dt;
+                
+                if (this.stateTimer > 0) {
+                    this.stateTimer -= dt;
+                    if (this.stateTimer <= 0) {
+                        this.isDashing = false; this.speed = this.baseSpeed;
+                        this.isUnderground = false; this.isLeaping = false;
+                        if (this.isAimingBoulder) {
+                            this.isAimingBoulder = false; this.fireBoulder(game);
+                        }
+                    }
+                }
+
+                if (this.isFrozen) return; // Do not apply movement if frozen
+
+                let dx = 0, dy = 0;
+                let wantsAbility = false;
+
+                if (!this.isBot) {
+                    dx = input.x; dy = input.y;
+                    if (input.abilityJustPressed) {
+                        wantsAbility = true; input.abilityJustPressed = false;
+                    } else if (!input.ability && this.isAimingBoulder) {
+                        this.isAimingBoulder = false; this.stateTimer = 0; this.fireBoulder(game);
+                    }
+                } else {
+                    this.updateBotAI(game, dt, (botDx, botDy, botAbility) => {
+                        dx = botDx; dy = botDy; wantsAbility = botAbility;
+                    });
+                }
+
+                if (this.isAimingBoulder) { dx *= 0.1; dy *= 0.1; }
+
+                if (dx !== 0 || dy !== 0) {
+                    let len = Math.hypot(dx, dy);
+                    this.dirX = dx / len; this.dirY = dy / len;
+                }
+
+                if (wantsAbility && this.cooldownTimer <= 0 && !this.isAimingBoulder && !this.isDashing) {
+                    this.activateAbility(game);
+                }
+
+                let nextX = this.x + dx * this.speed * (dt / 16);
+                let nextY = this.y + dy * this.speed * (dt / 16);
+
+                nextX = clamp(nextX, this.radius, MAP_SIZE - this.radius);
+                nextY = clamp(nextY, this.radius, MAP_SIZE - this.radius);
+
+                // Collision with Walls
+                let hitWallX = false, hitWallY = false;
+                for (let obs of game.obstacles) {
+                    if (obs.isDestroyed) continue;
+                    if (this.checkRectCircleCollision(nextX, this.y, obs)) hitWallX = true;
+                    if (this.checkRectCircleCollision(this.x, nextY, obs)) hitWallY = true;
+                    
+                    if (this.isDashing && (hitWallX || hitWallY)) {
+                        obs.isDestroyed = true; hitWallX = false; hitWallY = false;
+                        game.addText("SMASH!", obs.x + obs.w/2, obs.y, '#e53e3e');
+                    }
+                }
+                
+                if (!hitWallX) this.x = nextX;
+                if (!hitWallY) this.y = nextY;
+
+                // Interactions (Chasing and Unfreezing)
+                if (this.role === ROLES.CHASER) {
+                    for (let p of game.players) {
+                        if (p.role === ROLES.RUNNER && !p.isFrozen && !p.isInvulnerable()) {
+                            if (dist(this.x, this.y, p.x, p.y) < this.radius + p.radius) p.freeze(game);
+                        }
+                    }
+                } else if (this.role === ROLES.RUNNER && !this.isUnderground) {
+                    for (let p of game.players) {
+                        if (p !== this && p.role === ROLES.RUNNER && p.isFrozen) {
+                            if (dist(this.x, this.y, p.x, p.y) < this.radius + p.radius + 15) {
+                                p.unfreeze(game);
+                            }
+                        }
+                    }
+                }
+            }
+
+            checkRectCircleCollision(cx, cy, rect) {
+                let testX = cx, testY = cy;
+                if (cx < rect.x) testX = rect.x;
+                else if (cx > rect.x + rect.w) testX = rect.x + rect.w;
+                if (cy < rect.y) testY = rect.y;
+                else if (cy > rect.y + rect.h) testY = rect.y + rect.h;
+                let distance = Math.hypot(cx - testX, cy - testY);
+                return distance <= this.radius;
+            }
+
+            activateAbility(game) {
+                this.cooldownTimer = this.maxCooldown;
+                switch (this.ability) {
+                    case 'BULL_SMASH': this.isDashing = true; this.speed = 12; this.stateTimer = 400; break;
+                    case 'VINE_ATTACK': game.projectiles.push(new Projectile(this.x, this.y, 0, 0, 'vine', this)); break;
+                    case 'BOULDER_THROW': this.isAimingBoulder = true; this.stateTimer = 3000; break;
+                    case 'ZAP': 
+                        let step = 180;
+                        let finalX = this.x; let finalY = this.y;
+                        while(step > 0) {
+                            let tx = clamp(this.x + this.dirX * step, this.radius, MAP_SIZE-this.radius);
+                            let ty = clamp(this.y + this.dirY * step, this.radius, MAP_SIZE-this.radius);
+                            let safe = true;
+                            for(let obs of game.obstacles) {
+                                if(!obs.isDestroyed && tx + this.radius > obs.x && tx - this.radius < obs.x+obs.w && ty + this.radius > obs.y && ty - this.radius < obs.y+obs.h) {
+                                    safe = false; break;
+                                }
+                            }
+                            if(safe) { finalX = tx; finalY = ty; break; }
+                            step -= 20; 
+                        }
+                        this.x = finalX; this.y = finalY;
+                        break;
+                    case 'GROUND_HOG': this.isUnderground = true; this.stateTimer = 3000; break;
+                    case 'LEAPER': this.isLeaping = true; this.stateTimer = 1000; break;
+                }
+            }
+
+            fireBoulder(game) {
+                game.projectiles.push(new Projectile(this.x + this.dirX * 30, this.y + this.dirY * 30, this.dirX * 10, this.dirY * 10, 'boulder', this));
+            }
+
+            updateBotAI(game, dt, callback) {
+                let dx = 0, dy = 0, ability = false;
+                
+                if (this.role === ROLES.CHASER) {
+                    let target = null, minDist = Infinity;
+                    for (let p of game.players) {
+                        if (p.role === ROLES.RUNNER && !p.isFrozen && !p.isInvulnerable()) {
+                            let d = dist(this.x, this.y, p.x, p.y);
+                            if (d < minDist) { minDist = d; target = p; }
+                        }
+                    }
+
+                    if (target) {
+                        let diffX = target.x - this.x, diffY = target.y - this.y;
+                        // Add some noise to break perfectly mirrored dancing loops behind walls
+                        diffX += rand(-30, 30); diffY += rand(-30, 30);
+                        let len = Math.hypot(diffX, diffY);
+                        if (len > 0) { dx = diffX / len; dy = diffY / len; }
+
+                        if (minDist < 180 && Math.random() < 0.03) ability = true;
+                        if (this.isAimingBoulder && this.stateTimer < 2500) {
+                            this.isAimingBoulder = false; this.stateTimer = 0; this.fireBoulder(game);
+                        }
+                    }
+                } else {
+                    let chaser = game.players.find(p => p.role === ROLES.CHASER);
+                    let dChaser = dist(this.x, this.y, chaser.x, chaser.y);
+                    
+                    // Priority 1: Unfreeze teammates
+                    let targetFrozen = null, minFrozDist = Infinity;
+                    for (let p of game.players) {
+                        if (p !== this && p.role === ROLES.RUNNER && p.isFrozen) {
+                            let d = dist(this.x, this.y, p.x, p.y);
+                            if (d < minFrozDist) { minFrozDist = d; targetFrozen = p; }
+                        }
+                    }
+
+                    if (targetFrozen) {
+                        let diffX = targetFrozen.x - this.x, diffY = targetFrozen.y - this.y;
+                        let len = Math.hypot(diffX, diffY);
+                        if(len > 0) { dx = diffX / len; dy = diffY / len; }
+                        
+                        // If chaser is very close while rescuing, mix in flee vector to circle around
+                        if (dChaser < 200 && !chaser.isFrozen) {
+                            let fleeX = this.x - chaser.x, fleeY = this.y - chaser.y;
+                            let fleeLen = Math.hypot(fleeX, fleeY);
+                            if(fleeLen > 0) {
+                                dx = (dx + (fleeX / fleeLen) * 1.5) / 2;
+                                dy = (dy + (fleeY / fleeLen) * 1.5) / 2;
+                            }
+                            if (Math.random() < 0.04) ability = true;
+                        }
+                    }
+                    // Priority 2: Flee Chaser
+                    else if (dChaser < 450 && !chaser.isFrozen) {
+                        let diffX = this.x - chaser.x, diffY = this.y - chaser.y;
+                        // Add noise to break loops
+                        diffX += rand(-60, 60); diffY += rand(-60, 60);
+                        let len = Math.hypot(diffX, diffY);
+                        if(len > 0) { dx = diffX / len; dy = diffY / len; }
+                        if (dChaser < 180 && Math.random() < 0.04) ability = true;
+                    } 
+                    // Priority 3: Wander
+                    else {
+                        if (Math.random() < 0.02) {
+                            dx = rand(-1, 1); dy = rand(-1, 1);
+                        } else {
+                            dx = this.dirX; dy = this.dirY;
+                        }
+                        let len = Math.hypot(dx, dy);
+                        if(len > 0) { dx /= len; dy /= len; }
+                    }
+                }
+
+                // AI Wall Sliding Avoidance (Solves oscillation/getting stuck)
+                let lookAhead = 55;
+                let aheadX = this.x + dx * lookAhead, aheadY = this.y + dy * lookAhead;
+                for (let obs of game.obstacles) {
+                    if (!obs.isDestroyed && 
+                        aheadX > obs.x - this.radius && aheadX < obs.x + obs.w + this.radius &&
+                        aheadY > obs.y - this.radius && aheadY < obs.y + obs.h + this.radius) {
+                        
+                        let cx = obs.x + obs.w / 2;
+                        let cy = obs.y + obs.h / 2;
+                        let nx = this.x - cx;
+                        let ny = this.y - cy;
+                        let aspect = obs.w / obs.h;
+
+                        // Which side are we hitting? Slide along it.
+                        if (Math.abs(nx) > Math.abs(ny) * aspect) {
+                            dx = nx > 0 ? 0.5 : -0.5; // Push out horizontally
+                            dy = Math.sign(this.dirY) || (Math.random() < 0.5 ? 1 : -1); // Slide vertically
+                        } else {
+                            dy = ny > 0 ? 0.5 : -0.5; // Push out vertically
+                            dx = Math.sign(this.dirX) || (Math.random() < 0.5 ? 1 : -1); // Slide horizontally
+                        }
+
+                        dx += rand(-0.1, 0.1); dy += rand(-0.1, 0.1); // tiny noise to prevent corner deadlocks
+                        let newLen = Math.hypot(dx, dy); 
+                        if (newLen > 0) { dx /= newLen; dy /= newLen; } 
+                        break;
+                    }
+                }
+                callback(dx, dy, ability);
+            }
+
+            draw(ctx, camX, camY) {
+                let drawX = this.x - camX, drawY = this.y - camY, r = this.radius;
+
+                ctx.save();
+                if (this.isUnderground) {
+                    ctx.globalAlpha = 0.4; ctx.fillStyle = '#000';
+                    ctx.beginPath(); ctx.arc(drawX, drawY, r, 0, Math.PI * 2); ctx.fill();
+                    ctx.restore(); return;
+                }
+
+                if (this.isLeaping) {
+                    let progress = 1 - (this.stateTimer / 1000);
+                    let scale = 1 + Math.sin(progress * Math.PI) * 0.6;
+                    r *= scale;
+                    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                    ctx.beginPath(); ctx.arc(drawX, drawY + r*0.5, this.radius*0.8, 0, Math.PI * 2); ctx.fill();
+                }
+
+                ctx.beginPath(); ctx.arc(drawX, drawY, r, 0, Math.PI * 2);
+                ctx.fillStyle = this.color; ctx.fill();
+                
+                if (this.isFrozen) {
+                    ctx.lineWidth = 4; ctx.strokeStyle = '#ebf8ff'; ctx.stroke();
+                    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(drawX - r, drawY - r, r*2, r*2);
+                } else {
+                    ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+                }
+
+                ctx.beginPath(); ctx.moveTo(drawX, drawY);
+                ctx.lineTo(drawX + this.dirX * r * 1.5, drawY + this.dirY * r * 1.5);
+                ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
+
+                if (this.isAimingBoulder) {
+                    ctx.beginPath(); ctx.moveTo(drawX, drawY);
+                    ctx.lineTo(drawX + this.dirX * 250, drawY + this.dirY * 250);
+                    ctx.strokeStyle = 'rgba(255, 0, 0, 0.6)'; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
+                }
+
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText(this.isBot ? `P${this.id}` : 'You', drawX, drawY - r - 8);
+                ctx.restore();
+            }
+        }
+
+        // --- Game Engine ---
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                
+                this.state = 'menu';
+                this.players = []; this.obstacles = []; this.projectiles = []; this.texts = [];
+                this.timeLeft = GAME_DURATION; this.lastTime = 0;
+                this.myPlayer = null;
+                
+                this.freeCamX = 0; this.freeCamY = 0;
+                this.theme = MAP_THEMES.SCHOOL;
+                this.isGameOver = false;
+
+                document.getElementById('findMatchBtn').addEventListener('click', () => this.startMatchmaking());
+                document.getElementById('startGameBtn').addEventListener('click', () => this.startMatch());
+                document.getElementById('playAgainBtn').addEventListener('click', () => {
+                    this.state = 'menu';
+                    document.getElementById('gameOverScreen').classList.add('hidden');
+                    document.getElementById('menuScreen').classList.remove('hidden');
+                });
+
+                requestAnimationFrame(t => this.loop(t));
+            }
+
+            resize() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }
+
+            addText(text, x, y, color) { this.texts.push(new FloatingText(text, x, y, color)); }
+
+            startMatchmaking() {
+                document.getElementById('menuScreen').classList.add('hidden');
+                document.getElementById('matchmakingScreen').classList.remove('hidden');
+                
+                setTimeout(() => {
+                    document.getElementById('matchmakingScreen').classList.add('hidden');
+                    this.initGameSession();
+                }, 2000);
+            }
+
+            generateMap() {
+                this.obstacles = [];
+                const themes = Object.values(MAP_THEMES);
+                this.theme = themes[Math.floor(Math.random() * themes.length)];
+
+                this.obstacles.push(new Obstacle(-100, -100, MAP_SIZE+200, 100, this.theme));
+                this.obstacles.push(new Obstacle(-100, MAP_SIZE, MAP_SIZE+200, 100, this.theme));
+                this.obstacles.push(new Obstacle(-100, 0, 100, MAP_SIZE, this.theme));
+                this.obstacles.push(new Obstacle(MAP_SIZE, 0, 100, MAP_SIZE, this.theme));
+
+                let numBlocks = this.theme.type === 'scattered' ? 40 : 25;
+                for(let i=0; i<numBlocks; i++) {
+                    let w = this.theme.type === 'chunky' ? rand(100, 300) : rand(50, 150);
+                    let h = this.theme.type === 'chunky' ? rand(100, 300) : rand(50, 150);
+                    let x = rand(150, MAP_SIZE - w - 150);
+                    let y = rand(150, MAP_SIZE - h - 150);
+                    this.obstacles.push(new Obstacle(x, y, w, h, this.theme));
+                }
+            }
+
+            getSafeSpawnCoords() {
+                let attempts = 0;
+                while (attempts < 200) {
+                    let tx = rand(200, MAP_SIZE - 200);
+                    let ty = rand(200, MAP_SIZE - 200);
+                    let safe = true;
+                    for (let obs of this.obstacles) {
+                        if (tx + 25 > obs.x && tx - 25 < obs.x + obs.w && 
+                            ty + 25 > obs.y && ty - 25 < obs.y + obs.h) {
+                            safe = false; break;
+                        }
+                    }
+                    if (safe) return {x: tx, y: ty};
+                    attempts++;
+                }
+                return {x: MAP_SIZE/2, y: MAP_SIZE/2}; 
+            }
+
+            initGameSession() {
+                this.generateMap();
+                this.projectiles = []; this.texts = []; this.players = [];
+                this.timeLeft = GAME_DURATION;
+                this.isGameOver = false;
+
+                let roles = [ROLES.CHASER, ROLES.RUNNER, ROLES.RUNNER, ROLES.RUNNER].sort(() => Math.random() - 0.5);
+                const chaserAbs = ['BULL_SMASH', 'VINE_ATTACK', 'BOULDER_THROW'];
+                const runnerAbs = ['ZAP', 'GROUND_HOG', 'LEAPER'];
+
+                for (let i = 0; i < 4; i++) {
+                    let r = roles[i];
+                    let abArray = r === ROLES.CHASER ? chaserAbs : runnerAbs;
+                    let ab = abArray[Math.floor(Math.random() * abArray.length)];
+                    let spawn = this.getSafeSpawnCoords();
+                    let p = new Character(i+1, r, ab, i !== 0, spawn.x, spawn.y);
+                    this.players.push(p);
+                    if (i === 0) this.myPlayer = p;
+                }
+
+                this.state = 'tutorial';
+                const tScrn = document.getElementById('tutorialScreen');
+                tScrn.classList.remove('hidden');
+                
+                document.getElementById('tutTitle').innerText = `Role: ${this.myPlayer.role.toUpperCase()}`;
+                document.getElementById('tutTitle').className = `text-3xl font-black mb-4 text-center border-b border-gray-700 pb-2 ${this.myPlayer.role === ROLES.CHASER ? 'text-red-400' : 'text-blue-400'}`;
+                document.getElementById('tutGoal').innerText = this.myPlayer.role === ROLES.CHASER 
+                    ? "Goal: Catch all runners before time runs out!" 
+                    : "Goal: Survive for 2.5 minutes and save teammates!";
+                
+                let abData = ABILITIES[this.myPlayer.ability];
+                document.getElementById('tutAbilityName').innerText = abData.name + ":";
+                document.getElementById('tutAbilityDesc').innerText = abData.desc;
+                
+                if(this.myPlayer.role === ROLES.CHASER) {
+                    document.getElementById('tutExtra').innerHTML = "<strong>Tip:</strong> Break lines of sight. Runners are agile!";
+                } else {
+                    document.getElementById('tutExtra').innerHTML = "<strong>Tip:</strong> Touch frozen teammates to unfreeze them! If you get frozen, you can pan the camera to look around.";
+                }
+            }
+
+            startMatch() {
+                document.getElementById('tutorialScreen').classList.add('hidden');
+                document.getElementById('hud').classList.remove('hidden');
+                document.getElementById('controls').classList.remove('hidden');
+                
+                let mapIntro = document.getElementById('mapIntro');
+                document.getElementById('mapNameDisplay').innerText = this.theme.name;
+                mapIntro.classList.remove('hidden');
+                setTimeout(() => mapIntro.classList.add('hidden'), 3500);
+
+                document.getElementById('roleDisplay').innerText = `Role: ${this.myPlayer.role}`;
+                document.getElementById('roleDisplay').className = `font-bold text-lg mb-1 ${this.myPlayer.role === ROLES.CHASER ? 'text-red-400' : 'text-blue-400'}`;
+                document.getElementById('abilityDisplay').innerText = `Ability: ${ABILITIES[this.myPlayer.ability].name}`;
+                document.getElementById('abilityName').innerText = ABILITIES[this.myPlayer.ability].name.split(' ')[0];
+                
+                this.state = 'playing';
+                this.lastTime = performance.now();
+                this.wasFrozen = false;
+                resetJoystick(); 
+            }
+
+            endGame(chaserWins) {
+                this.state = 'gameover';
+                document.getElementById('hud').classList.add('hidden');
+                document.getElementById('controls').classList.add('hidden');
+                document.getElementById('gameOverScreen').classList.remove('hidden');
+                
+                const timeStr = this.formatTime(GAME_DURATION - this.timeLeft);
+                document.getElementById('winnerText').innerText = chaserWins ? "CHASER WINS!" : "RUNNERS WIN!";
+                document.getElementById('winnerText').className = `text-6xl font-black mb-4 ${chaserWins ? 'text-red-500' : 'text-blue-500'}`;
+                document.getElementById('statsText').innerText = chaserWins 
+                    ? `All runners captured in ${timeStr}` 
+                    : `Runners survived the full ${this.formatTime(GAME_DURATION)}!`;
+                
+                resetJoystick();
+            }
+
+            formatTime(seconds) {
+                let m = Math.floor(seconds / 60), s = Math.floor(seconds % 60);
+                return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+            }
+
+            updateUI() {
+                document.getElementById('timerDisplay').innerText = this.formatTime(this.timeLeft);
+                let frozenCount = this.players.filter(p => p.role === ROLES.RUNNER && p.isFrozen).length;
+                document.getElementById('teamStatus').innerText = `Caught: ${frozenCount}/3`;
+
+                let cdEl = document.getElementById('abilityCooldown');
+                if (this.myPlayer.cooldownTimer > 0) {
+                    cdEl.style.display = 'flex';
+                    cdEl.style.height = `${(this.myPlayer.cooldownTimer / this.myPlayer.maxCooldown) * 100}%`;
+                    cdEl.innerText = (this.myPlayer.cooldownTimer / 1000).toFixed(1);
+                } else { cdEl.style.display = 'none'; }
+                
+                let tip = document.getElementById('frozenCamTip');
+                if (this.myPlayer.isFrozen) tip.classList.remove('hidden');
+                else tip.classList.add('hidden');
+            }
+
+            drawMinimap(ctx) {
+                const mapSize = 140; const pad = 20;
+                const minX = this.canvas.width - mapSize - pad; const minY = pad;
+                
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.fillRect(minX, minY, mapSize, mapSize);
+                ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                ctx.lineWidth = 2; ctx.strokeRect(minX, minY, mapSize, mapSize);
+
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.font = 'bold 10px monospace';
+                ctx.textAlign = 'right';
+                ctx.fillText('RADAR', minX + mapSize - 5, minY + 15);
+
+                for (let p of this.players) {
+                    let px = minX + (p.x / MAP_SIZE) * mapSize;
+                    let py = minY + (p.y / MAP_SIZE) * mapSize;
+                    
+                    ctx.beginPath();
+                    ctx.arc(px, py, p.role === ROLES.CHASER ? 4 : 3, 0, Math.PI*2);
+                    if (p.isFrozen) ctx.fillStyle = '#90cdf4';
+                    else if (p === this.myPlayer) ctx.fillStyle = '#fff';
+                    else ctx.fillStyle = p.color;
+                    ctx.fill();
+                }
+
+                let camW = (this.canvas.width / MAP_SIZE) * mapSize;
+                let camH = (this.canvas.height / MAP_SIZE) * mapSize;
+                let cX = minX + (this.camX / MAP_SIZE) * mapSize;
+                let cY = minY + (this.camY / MAP_SIZE) * mapSize;
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(cX, cY, camW, camH);
+            }
+
+            loop(timestamp) {
+                let dt = timestamp - this.lastTime;
+                this.lastTime = timestamp;
+                if (dt > 100 || isNaN(dt)) dt = 16; 
+
+                if (this.state === 'playing') {
+                    this.timeLeft -= dt / 1000;
+                    if (this.timeLeft <= 0 && !this.isGameOver) { 
+                        this.timeLeft = 0; 
+                        this.isGameOver = true;
+                        this.endGame(false); 
+                    }
+
+                    // Handles Camera positioning/panning seamlessly
+                    if (this.myPlayer.isFrozen) {
+                        if (!this.wasFrozen) {
+                            this.wasFrozen = true;
+                            this.freeCamX = this.myPlayer.x || MAP_SIZE/2;
+                            this.freeCamY = this.myPlayer.y || MAP_SIZE/2;
+                        }
+                        let panSpeed = 15;
+                        this.freeCamX += input.x * panSpeed * (dt/16);
+                        this.freeCamY += input.y * panSpeed * (dt/16);
+                        this.freeCamX = clamp(this.freeCamX, 0, MAP_SIZE);
+                        this.freeCamY = clamp(this.freeCamY, 0, MAP_SIZE);
+                        
+                        this.camX = this.freeCamX - this.canvas.width / 2;
+                        this.camY = this.freeCamY - this.canvas.height / 2;
+                    } else {
+                        this.wasFrozen = false;
+                        this.camX = this.myPlayer.x - this.canvas.width / 2;
+                        this.camY = this.myPlayer.y - this.canvas.height / 2;
+                    }
+
+                    for (let p of this.players) p.update(dt, this);
+                    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+                        this.projectiles[i].update(dt, this);
+                        if (!this.projectiles[i].active) this.projectiles.splice(i, 1);
+                    }
+                    for (let i = this.texts.length - 1; i >= 0; i--) {
+                        this.texts[i].update(dt);
+                        if (this.texts[i].life <= 0) this.texts.splice(i, 1);
+                    }
+
+                    let activeRunners = this.players.filter(p => p.role === ROLES.RUNNER && !p.isFrozen).length;
+                    
+                    // Critical Bug Fix: Guard against infinite loop setTimeout crash
+                    if (activeRunners === 0 && !this.isGameOver) {
+                        this.isGameOver = true; 
+                        setTimeout(() => { if (this.state === 'playing') this.endGame(true); }, 500);
+                    }
+
+                    this.updateUI();
+                }
+
+                this.draw();
+                requestAnimationFrame(t => this.loop(t));
+            }
+
+            draw() {
+                if (this.theme) {
+                    this.ctx.fillStyle = this.theme.out;
+                    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                }
+
+                if (this.state !== 'playing' && this.state !== 'gameover' && this.state !== 'tutorial') return;
+                
+                if(this.state === 'tutorial') {
+                    this.camX = this.myPlayer.x - this.canvas.width/2;
+                    this.camY = this.myPlayer.y - this.canvas.height/2;
+                }
+
+                this.ctx.save();
+                this.ctx.fillStyle = this.theme.bg;
+                this.ctx.fillRect(-this.camX, -this.camY, MAP_SIZE, MAP_SIZE);
+
+                this.ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+                this.ctx.lineWidth = 1;
+                let grid = 100;
+                let startX = Math.floor(this.camX / grid) * grid;
+                let startY = Math.floor(this.camY / grid) * grid;
+                this.ctx.beginPath();
+                for (let x = startX; x < this.camX + this.canvas.width; x += grid) {
+                    if(x >= 0 && x <= MAP_SIZE) { this.ctx.moveTo(x - this.camX, -this.camY); this.ctx.lineTo(x - this.camX, MAP_SIZE - this.camY); }
+                }
+                for (let y = startY; y < this.camY + this.canvas.height; y += grid) {
+                    if(y >= 0 && y <= MAP_SIZE) { this.ctx.moveTo(-this.camX, y - this.camY); this.ctx.lineTo(MAP_SIZE - this.camX, y - this.camY); }
+                }
+                this.ctx.stroke();
+
+                for (let obs of this.obstacles) obs.draw(this.ctx, this.camX, this.camY);
+                for (let proj of this.projectiles) proj.draw(this.ctx, this.camX, this.camY);
+                for (let p of this.players) p.draw(this.ctx, this.camX, this.camY);
+                for (let t of this.texts) t.draw(this.ctx, this.camX, this.camY);
+
+                this.ctx.restore();
+
+                if (this.state === 'playing') this.drawMinimap(this.ctx);
+            }
+        }
+
+        window.onload = () => { const game = new Game(); };
+    </script>
+</body>
+</html>
