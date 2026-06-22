@@ -1,0 +1,2126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Vish &amp; Amrit — Chase Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --glacier-night:#0a1628;
+    --glacier-night-2:#0f2138;
+    --frost-white:#eef6ff;
+    --permafrost:#3b82c4;
+    --blight-violet:#7c3aed;
+    --blight-violet-2:#a78bfa;
+    --sprite-cyan:#22d3ee;
+    --moss-lime:#a3e635;
+    --bloom-magenta:#f472b6;
+    --amber:#fbbf24;
+    --danger:#ef4444;
+    --panel-bg: rgba(15, 33, 56, 0.72);
+    --panel-border: rgba(238, 246, 255, 0.14);
+    --font-display: 'Fredoka', system-ui, sans-serif;
+    --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--glacier-night); font-family:var(--font-body); color:var(--frost-white); user-select:none;}
+  #app{position:fixed; inset:0; width:100%; height:100%;}
+  #game-canvas{position:absolute; inset:0; display:block; touch-action:none; cursor:default;}
+
+  /* ---------- shared panel / button styles ---------- */
+  .screen{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:18px; padding:24px; text-align:center;
+    z-index:20;
+  }
+  .hidden{display:none !important;}
+  .card{
+    background:var(--panel-bg);
+    border:1px solid var(--panel-border);
+    border-radius:22px;
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
+    padding:36px 40px;
+    max-width:560px;
+    width:100%;
+  }
+  .eyebrow{
+    font-family:var(--font-mono); letter-spacing:0.18em; text-transform:uppercase;
+    font-size:11px; color:var(--sprite-cyan); font-weight:700; margin:0 0 6px;
+  }
+  h1.title{
+    font-family:var(--font-display); font-weight:700; font-size:clamp(32px,6vw,52px);
+    margin:0; line-height:1.05; letter-spacing:-0.01em;
+  }
+  h1.title .glow{ color:var(--blight-violet-2); text-shadow:0 0 24px rgba(124,58,237,0.55);}
+  p.subtitle{ font-size:15px; color:rgba(238,246,255,0.72); line-height:1.55; margin:6px 0 0; max-width:440px;}
+  .btn{
+    font-family:var(--font-display); font-weight:600; font-size:16px; letter-spacing:0.01em;
+    border:none; border-radius:14px; padding:14px 28px; cursor:pointer;
+    background:linear-gradient(135deg, var(--sprite-cyan), var(--permafrost));
+    color:#03131f; box-shadow:0 8px 22px rgba(34,211,238,0.28);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .btn:hover{ transform:translateY(-2px); box-shadow:0 12px 28px rgba(34,211,238,0.38);}
+  .btn:active{ transform:translateY(0px) scale(0.98);}
+  .btn.secondary{
+    background:rgba(238,246,255,0.08); color:var(--frost-white); border:1px solid var(--panel-border);
+    box-shadow:none;
+  }
+  .btn.secondary:hover{ background:rgba(238,246,255,0.14);}
+  .btn-row{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:8px;}
+
+  /* ---------- menu screen specifics ---------- */
+  .role-legend{ display:flex; gap:14px; margin-top:18px; justify-content:center; flex-wrap:wrap;}
+  .legend-chip{
+    display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600;
+    background:rgba(255,255,255,0.05); border:1px solid var(--panel-border); border-radius:999px;
+    padding:7px 14px 7px 9px;
+  }
+  .swatch{ width:11px; height:11px; border-radius:50%; flex:none;}
+
+  .theme-picker{ display:flex; gap:10px; margin-top:20px; justify-content:center; flex-wrap:wrap;}
+  .theme-chip{
+    display:flex; flex-direction:column; align-items:center; gap:4px; width:78px;
+    background:rgba(255,255,255,0.04); border:1.5px solid var(--panel-border); border-radius:14px;
+    padding:10px 6px 8px; cursor:pointer; transition: all 0.15s ease; font-size:11.5px; font-weight:600;
+  }
+  .theme-chip .emoji{ font-size:22px; line-height:1;}
+  .theme-chip:hover{ background:rgba(255,255,255,0.09); transform:translateY(-1px);}
+  .theme-chip.active{ background:rgba(34,211,238,0.14); border-color:var(--sprite-cyan); box-shadow:0 0 0 1px rgba(34,211,238,0.3);}
+  .theme-picker-label{ font-family:var(--font-mono); font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:rgba(238,246,255,0.5); margin-top:20px;}
+
+  /* ---------- matchmaking screen ---------- */
+  .spinner{
+    width:54px; height:54px; border-radius:50%;
+    border:4px solid rgba(238,246,255,0.15); border-top-color:var(--sprite-cyan);
+    animation: spin 0.85s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg);} }
+  #mm-status{ font-family:var(--font-mono); font-size:13px; color:rgba(238,246,255,0.8); min-height:18px;}
+  .player-slots{ display:flex; gap:10px; margin-top:10px;}
+  .slot{
+    width:42px; height:42px; border-radius:12px; border:1.5px dashed rgba(238,246,255,0.25);
+    display:flex; align-items:center; justify-content:center; font-size:18px; opacity:0.35;
+    transition: all 0.3s ease;
+  }
+  .slot.filled{ opacity:1; border-style:solid; border-color:transparent; background:rgba(34,211,238,0.18); transform:scale(1.05);}
+
+  /* ---------- reveal screen ---------- */
+  #reveal-card{
+    transform: rotateY(90deg) scale(0.8); opacity:0;
+    transition: transform 0.55s cubic-bezier(.2,.9,.25,1.1), opacity 0.4s ease;
+  }
+  #reveal-card.shown{ transform: rotateY(0deg) scale(1); opacity:1;}
+  .reveal-role-badge{
+    font-family:var(--font-display); font-weight:700; font-size:13px; letter-spacing:0.12em;
+    text-transform:uppercase; padding:6px 16px; border-radius:999px; display:inline-block; margin-bottom:10px;
+  }
+  .reveal-role-badge.chaser{ background:rgba(124,58,237,0.22); color:var(--blight-violet-2); border:1px solid rgba(124,58,237,0.4);}
+  .reveal-role-badge.runner{ background:rgba(34,211,238,0.18); color:var(--sprite-cyan); border:1px solid rgba(34,211,238,0.4);}
+  .reveal-ability-box{
+    margin-top:18px; padding:16px 18px; border-radius:16px; background:rgba(255,255,255,0.05);
+    border:1px solid var(--panel-border); text-align:left; display:flex; gap:14px; align-items:flex-start;
+  }
+  .reveal-ability-icon{ font-size:30px; flex:none; line-height:1;}
+  .reveal-ability-name{ font-family:var(--font-display); font-weight:600; font-size:17px; margin:0 0 3px;}
+  .reveal-ability-desc{ font-size:13px; color:rgba(238,246,255,0.7); margin:0; line-height:1.5;}
+  .reveal-meta{ font-size:12.5px; color:rgba(238,246,255,0.55); margin-top:10px; font-family:var(--font-mono);}
+
+  /* ---------- countdown ---------- */
+  #countdown-num{
+    font-family:var(--font-display); font-weight:700; font-size:min(28vw,220px); color:var(--frost-white);
+    text-shadow:0 0 60px rgba(124,58,237,0.6); animation: pop 0.55s ease;
+  }
+  @keyframes pop{ from{ transform:scale(0.4); opacity:0;} to{ transform:scale(1); opacity:1;} }
+
+  /* ---------- end screen ---------- */
+  .result-banner{ font-family:var(--font-display); font-weight:700; font-size:clamp(30px,5.5vw,46px); margin:0;}
+  .result-banner.win{ color:var(--moss-lime); text-shadow:0 0 26px rgba(163,230,53,0.4);}
+  .result-banner.lose{ color:var(--danger); text-shadow:0 0 26px rgba(239,68,68,0.4);}
+  .stat-row{ display:flex; gap:22px; justify-content:center; margin-top:14px; flex-wrap:wrap;}
+  .stat{ display:flex; flex-direction:column; gap:2px;}
+  .stat .num{ font-family:var(--font-mono); font-weight:700; font-size:22px;}
+  .stat .lbl{ font-size:11px; color:rgba(238,246,255,0.55); text-transform:uppercase; letter-spacing:0.08em;}
+
+  /* ---------- in-game HUD ---------- */
+  #hud{ position:absolute; inset:0; pointer-events:none; z-index:10; font-family:var(--font-body);}
+  #hud.hidden{ display:none;}
+  .hud-top{
+    position:absolute; top:0; left:0; right:0; display:flex; justify-content:space-between;
+    align-items:flex-start; padding:16px 18px; gap:10px;
+  }
+  .hud-pill{
+    background:var(--panel-bg); border:1px solid var(--panel-border); border-radius:14px;
+    backdrop-filter: blur(10px); padding:9px 14px; display:flex; align-items:center; gap:9px;
+  }
+  #role-pill .role-dot{ width:9px; height:9px; border-radius:50%;}
+  #role-pill span{ font-weight:700; font-size:13px; font-family:var(--font-display); letter-spacing:0.02em;}
+  #timer-pill{ font-family:var(--font-mono); font-weight:700; font-size:21px; letter-spacing:0.03em; padding:8px 18px;}
+  #timer-pill.urgent{ color:var(--danger); animation: tpulse 1s infinite;}
+  @keyframes tpulse{ 0%,100%{opacity:1;} 50%{opacity:0.45;} }
+  #runners-pill{ gap:7px;}
+  #runners-pill .paw{ font-size:15px; opacity:1; transition:opacity 0.3s;}
+  #runners-pill .paw.gone{ opacity:0.25; filter:grayscale(1);}
+
+  #toast-wrap{
+    position:absolute; top:78px; left:50%; transform:translateX(-50%); display:flex; flex-direction:column;
+    align-items:center; gap:6px; pointer-events:none;
+  }
+  .toast{
+    font-family:var(--font-display); font-weight:600; font-size:15px; color:var(--frost-white);
+    background:rgba(10,22,40,0.78); border:1px solid var(--panel-border); border-radius:10px;
+    padding:7px 16px; box-shadow:0 6px 18px rgba(0,0,0,0.35);
+    animation: toastin 0.25s ease, toastout 0.4s ease 1.6s forwards;
+  }
+  @keyframes toastin{ from{ transform:translateY(-10px); opacity:0;} to{ transform:translateY(0); opacity:1;} }
+  @keyframes toastout{ to{ opacity:0; transform:translateY(-6px);} }
+
+  .hud-bottom{
+    position:absolute; bottom:0; left:0; right:0; display:flex; justify-content:center;
+    align-items:center; padding:22px; gap:16px;
+  }
+  #ability-btn{
+    pointer-events:auto; width:78px; height:78px; border-radius:50%; position:relative; cursor:pointer;
+    background:radial-gradient(circle at 35% 30%, #1b3a57, #0a1c30);
+    border:2px solid var(--panel-border); display:flex; align-items:center; justify-content:center;
+    box-shadow:0 10px 26px rgba(0,0,0,0.45);
+  }
+  #ability-btn .icon{ font-size:30px; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5)); z-index:2;}
+  #ability-btn .sweep{
+    position:absolute; inset:-2px; border-radius:50%;
+    background: conic-gradient(rgba(10,22,40,0.82) calc(var(--p,0)*1%), transparent 0);
+    transition:none;
+  }
+  #ability-btn.ready{ box-shadow:0 0 0 4px rgba(34,211,238,0.35), 0 10px 26px rgba(0,0,0,0.45); animation:abready 1.4s infinite;}
+  @keyframes abready{ 0%,100%{ box-shadow:0 0 0 4px rgba(34,211,238,0.3), 0 10px 26px rgba(0,0,0,0.45);} 50%{ box-shadow:0 0 0 9px rgba(34,211,238,0.08), 0 10px 26px rgba(0,0,0,0.45);} }
+  #ability-key-hint{
+    position:absolute; bottom:-22px; left:50%; transform:translateX(-50%); font-family:var(--font-mono);
+    font-size:10.5px; color:rgba(238,246,255,0.55); white-space:nowrap;
+  }
+  #ability-label{
+    pointer-events:none; font-family:var(--font-display); font-weight:600; font-size:13px;
+    color:rgba(238,246,255,0.85); position:absolute; bottom:108px; left:50%; transform:translateX(-50%);
+    background:rgba(10,22,40,0.7); padding:4px 12px; border-radius:8px; white-space:nowrap;
+  }
+
+  #status-banner{
+    position:absolute; top:42%; left:50%; transform:translate(-50%,-50%); pointer-events:none;
+    font-family:var(--font-display); font-weight:700; font-size:26px; letter-spacing:0.04em;
+    text-transform:uppercase; opacity:0; transition:opacity 0.15s;
+  }
+  #status-banner.show{ opacity:1;}
+
+  #frozen-overlay{
+    position:absolute; top:128px; left:50%; transform:translateX(-50%); pointer-events:none;
+    font-family:var(--font-display); font-weight:600; font-size:14.5px; color:#e0f2fe;
+    background:rgba(8,47,73,0.7); border:1px solid rgba(125,211,252,0.4); border-radius:12px;
+    padding:9px 18px; display:flex; align-items:center; gap:8px;
+    animation: frozenpulse 1.6s infinite;
+  }
+  @keyframes frozenpulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(125,211,252,0.35);} 50%{ box-shadow:0 0 0 8px rgba(125,211,252,0);} }
+
+  #minimap{
+    position:absolute; bottom:22px; right:22px; width:128px; height:128px; border-radius:14px;
+    background:rgba(10,22,40,0.6); border:1px solid var(--panel-border); backdrop-filter: blur(8px);
+  }
+
+  #controls-hint{
+    position:absolute; bottom:118px; right:22px; font-size:11px; font-family:var(--font-mono);
+    color:rgba(238,246,255,0.45); text-align:right; line-height:1.5;
+  }
+
+  #pause-overlay{ z-index:30;}
+
+  /* ---------- touch controls ---------- */
+  #touch-controls{ position:absolute; inset:0; pointer-events:none; z-index:11;}
+  #joystick-zone{
+    position:absolute; left:26px; bottom:26px; width:120px; height:120px; border-radius:50%;
+    background:rgba(238,246,255,0.06); border:1.5px solid rgba(238,246,255,0.18); pointer-events:auto;
+  }
+  #joystick-knob{
+    position:absolute; width:50px; height:50px; border-radius:50%; background:rgba(238,246,255,0.28);
+    border:1.5px solid rgba(238,246,255,0.4); top:35px; left:35px; transition:none;
+  }
+
+  @media (max-width:640px){
+    .card{ padding:26px 22px;}
+    .role-legend{ gap:8px;}
+    #minimap{ width:96px; height:96px;}
+    #controls-hint{ display:none;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="game-canvas"></canvas>
+
+  <!-- ===================== MENU ===================== -->
+  <div id="screen-menu" class="screen">
+    <div class="card">
+      <p class="eyebrow">4-Player Chase &middot; Inspired by Vish-Amrit</p>
+      <h1 class="title">Vish <span class="glow">&amp;</span> Amrit</h1>
+      <p class="subtitle">One giant Chaser. Three nimble Runners. Getting caught isn't game over — a free teammate can free you before the 2:30 buzzer runs down.</p>
+      <div class="role-legend">
+        <div class="legend-chip"><span class="swatch" style="background:var(--blight-violet-2)"></span>Chaser — 1 player</div>
+        <div class="legend-chip"><span class="swatch" style="background:var(--sprite-cyan)"></span>Runners — 3 players</div>
+      </div>
+      <p class="theme-picker-label">Choose your arena</p>
+      <div class="theme-picker" id="theme-picker">
+        <div class="theme-chip active" data-theme="random"><span class="emoji">🎲</span>Random</div>
+        <div class="theme-chip" data-theme="tundra"><span class="emoji">🏔️</span>Tundra</div>
+        <div class="theme-chip" data-theme="school"><span class="emoji">🏫</span>School</div>
+        <div class="theme-chip" data-theme="jungle"><span class="emoji">🌴</span>Jungle</div>
+        <div class="theme-chip" data-theme="factory"><span class="emoji">🏭</span>Factory</div>
+      </div>
+      <div class="btn-row" style="margin-top:22px;">
+        <button class="btn" id="btn-find-match">Find Match</button>
+      </div>
+      <p style="font-size:11.5px; color:rgba(238,246,255,0.4); margin-top:16px; font-family:var(--font-mono);">vs AI bots &middot; role assigned at random &middot; match length 2:30</p>
+    </div>
+  </div>
+
+  <!-- ===================== MATCHMAKING ===================== -->
+  <div id="screen-matchmaking" class="screen hidden">
+    <div class="card">
+      <div class="spinner" style="margin:0 auto 8px;"></div>
+      <p class="eyebrow" style="margin-top:6px;">Matchmaking</p>
+      <h1 class="title" style="font-size:26px;">Searching for an arena…</h1>
+      <div id="mm-status">Connecting to lobby…</div>
+      <div class="player-slots" id="mm-slots">
+        <div class="slot">1</div><div class="slot">2</div><div class="slot">3</div><div class="slot">4</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== ROLE REVEAL ===================== -->
+  <div id="screen-reveal" class="screen hidden">
+    <div class="card" id="reveal-card">
+      <span class="reveal-role-badge" id="reveal-badge">Role</span>
+      <h1 class="title" id="reveal-title" style="font-size:34px;">You are…</h1>
+      <p class="subtitle" id="reveal-sub"></p>
+      <div class="reveal-ability-box">
+        <div class="reveal-ability-icon" id="reveal-ability-icon">⚡</div>
+        <div>
+          <p class="reveal-ability-name" id="reveal-ability-name">Ability</p>
+          <p class="reveal-ability-desc" id="reveal-ability-desc">Description</p>
+        </div>
+      </div>
+      <p class="reveal-meta" id="reveal-meta">Cooldown: —</p>
+      <div class="btn-row" style="margin-top:20px;">
+        <button class="btn" id="btn-ready">I'm Ready</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== COUNTDOWN ===================== -->
+  <div id="screen-countdown" class="screen hidden" style="background:rgba(10,22,40,0.45);">
+    <div id="countdown-num">3</div>
+  </div>
+
+  <!-- ===================== END SCREEN ===================== -->
+  <div id="screen-end" class="screen hidden">
+    <div class="card">
+      <p class="result-banner" id="end-banner">Result</p>
+      <p class="subtitle" id="end-sub"></p>
+      <div class="stat-row">
+        <div class="stat"><span class="num" id="stat-time">0:00</span><span class="lbl">Match Time</span></div>
+        <div class="stat"><span class="num" id="stat-captured">0/3</span><span class="lbl">Runners Caught</span></div>
+        <div class="stat"><span class="num" id="stat-role">—</span><span class="lbl">You Played</span></div>
+      </div>
+      <div class="btn-row" style="margin-top:24px;">
+        <button class="btn" id="btn-play-again">Play Again</button>
+        <button class="btn secondary" id="btn-main-menu">Main Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PAUSE ===================== -->
+  <div id="pause-overlay" class="screen hidden" style="background:rgba(10,22,40,0.55);">
+    <div class="card" style="max-width:340px;">
+      <h1 class="title" style="font-size:28px;">Paused</h1>
+      <div class="btn-row" style="margin-top:14px;">
+        <button class="btn" id="btn-resume">Resume</button>
+        <button class="btn secondary" id="btn-quit">Quit to Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== HUD ===================== -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="hud-pill" id="role-pill"><span class="role-dot" id="role-dot"></span><span id="role-text">Runner</span></div>
+      <div class="hud-pill" id="timer-pill">2:30</div>
+      <div class="hud-pill" id="runners-pill">
+        <span class="paw" id="paw-0">🐾</span><span class="paw" id="paw-1">🐾</span><span class="paw" id="paw-2">🐾</span>
+      </div>
+    </div>
+    <div id="toast-wrap"></div>
+    <div id="status-banner">Stunned!</div>
+    <div id="frozen-overlay" class="hidden"></div>
+    <div id="controls-hint">WASD / Arrows — move<br>Space / Click — use ability (fires the way you're moving)<br>Walk into a frozen teammate to thaw them<br>Esc — pause</div>
+    <canvas id="minimap"></canvas>
+    <div class="hud-bottom">
+      <div id="ability-label">Ability</div>
+      <div id="ability-btn">
+        <div class="sweep" id="ability-sweep"></div>
+        <div class="icon" id="ability-icon">⚡</div>
+        <div id="ability-key-hint">SPACE</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="touch-controls" class="hidden">
+    <div id="joystick-zone"><div id="joystick-knob"></div></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* =========================================================================
+   VISH & AMRIT — CHASE ARENA
+   Single-file canvas game. 1 Chaser vs 3 Runners. Player gets a random
+   role each match; the other three seats are filled by AI.
+   ========================================================================= */
+
+/* --------------------------- CONFIG --------------------------- */
+const CONFIG = {
+  arena: { width: 2400, height: 1600 },
+  match: { duration: 150 }, // 2.5 minutes
+  chaser: { radius: 30, speed: 232, captureBuffer: 15, targetSwitchMargin: 60 },
+  runner: { radius: 17, speed: 270 },
+  rescue: { buffer: 22, invuln: 1.0 },
+  abilities: {
+    bullSmash:    { cooldown: 5, dashSpeed: 660, dashTime: 0.34, hitRadius: 48, stunTime: 1.8, destroyRadius: 36 },
+    vineAttack:   { cooldown: 7, range: 150, radius: 95, duration: 3 },
+    boulderThrow: { cooldown: 6, aimTime: 3, speed: 540, maxRange: 560, hitRadius: 40, stunTime: 1.8 },
+    zap:          { cooldown: 7, distance: 230, invuln: 0.3 },
+    groundHog:    { cooldown: 9, duration: 3, speedMult: 0.6 },
+    leaper:       { cooldown: 6, distance: 270, invuln: 0.45 },
+  },
+  obstacles: { count: 28, minRadius: 22, maxRadius: 44 },
+};
+
+const ABILITY_INFO = {
+  bullSmash:    { icon:'🐂', name:'Bull Smash',   desc:'Charge forward — smash obstacles and stun any runner you hit.', team:'chaser', cooldown:5 },
+  vineAttack:   { icon:'🌿', name:'Vine Snare',   desc:'Summon thorny vines just ahead of you. Anyone caught inside gets rooted.', team:'chaser', cooldown:7 },
+  boulderThrow: { icon:'🪨', name:'Boulder Throw',desc:'Heft a boulder and aim — throw within 3s or it launches on its own.', team:'chaser', cooldown:6 },
+  zap:          { icon:'⚡', name:'Zap',          desc:'Teleport a short burst forward, passing straight through obstacles.', team:'runner', cooldown:7 },
+  groundHog:    { icon:'⛰️', name:'Ground Burrow',desc:'Dive underground — untouchable and untargetable for 3 seconds.', team:'runner', cooldown:9 },
+  leaper:       { icon:'🦘', name:'Leap',         desc:'Spring forward over obstacles and out of the Chaser\'s reach.', team:'runner', cooldown:6 },
+};
+
+/* --------------------------- THEMES (terrain skins) --------------------------- */
+const THEMES = {
+  tundra: {
+    id:'tundra', icon:'🏔️', label:'Frost Tundra',
+    chaserName:'Frost Behemoth', chaserShort:'Behemoth',
+    runnerTeamName:'Water Sprites', runnerShort:'Sprite',
+    palette:{
+      bgTop:'#0a1628', bgBottom:'#0f2138', groundTop:'#163457', groundBottom:'#0e2540',
+      grid:'rgba(238,246,255,0.035)', vignette:'rgba(238,246,255,0.18)',
+      decor:'rgba(125,211,252,0.07)', accent:'#a78bfa',
+    },
+    ambient:{ mode:'fall', color:'rgba(255,255,255,0.55)', count:70, minR:1, maxR:3, speedMin:18, speedMax:46, wanderAmt:12 },
+    runnerColors:['#22d3ee','#a3e635','#f472b6'],
+    runnerNames:['Sprite Cyan','Sprite Moss','Sprite Bloom'],
+    obstacleKinds:['rock','tree'], pawIcon:'🐾', frozenIcon:'🧊', caughtVerb:'Frozen', freeVerb:'Thawed', freeAction:'thaw',
+    endLines:{
+      chaserWin:'Every sprite is frozen solid. The Frost Behemoth claims the arena.',
+      chaserLose:'Time ran out — at least one sprite slipped free of the ice.',
+      runnersLose:'The whole team ended up frozen solid before the buzzer.',
+      runnersWinFrozen:'You were still frozen at the buzzer, but your team held on without you.',
+      runnersWin:'You and your team outlasted the Behemoth until the buzzer.',
+    },
+  },
+  school: {
+    id:'school', icon:'🏫', label:'High School',
+    chaserName:'Substitute Teacher', chaserShort:'Teacher',
+    runnerTeamName:'Students', runnerShort:'Student',
+    palette:{
+      bgTop:'#1c2541', bgBottom:'#232f55', groundTop:'#56b46e', groundBottom:'#3f8f54',
+      grid:'rgba(255,255,255,0.06)', vignette:'rgba(255,236,179,0.14)',
+      decor:'rgba(255,255,255,0.10)', accent:'#fb7185',
+    },
+    ambient:{ mode:'fall', color:'rgba(217,119,6,0.6)', count:38, minR:2, maxR:4, speedMin:14, speedMax:30, wanderAmt:24 },
+    runnerColors:['#60a5fa','#fb923c','#34d399'],
+    runnerNames:['Mia','Leo','Zara'],
+    obstacleKinds:['locker','hedge'], pawIcon:'🎓', frozenIcon:'⛔', caughtVerb:'Caught', freeVerb:'Freed', freeAction:'free',
+    endLines:{
+      chaserWin:'Every student got caught before the bell. Detention for everyone.',
+      chaserLose:'Saved by the bell — at least one student stayed free.',
+      runnersLose:'The whole class got caught before the bell rang.',
+      runnersWinFrozen:'You were still caught when the bell rang, but your class made it.',
+      runnersWin:'The bell rings — your class made it to the end.',
+    },
+  },
+  jungle: {
+    id:'jungle', icon:'🌴', label:'Jungle',
+    chaserName:'Goblin Chief', chaserShort:'Goblin',
+    runnerTeamName:'Tribe Runners', runnerShort:'Tribe',
+    palette:{
+      bgTop:'#0c1f12', bgBottom:'#142b18', groundTop:'#356b3c', groundBottom:'#1f3a23',
+      grid:'rgba(190,242,100,0.05)', vignette:'rgba(20,50,20,0.3)',
+      decor:'rgba(125,211,252,0.10)', accent:'#facc15',
+    },
+    ambient:{ mode:'float', color:'rgba(250,204,21,0.85)', count:28, minR:1.5, maxR:2.5, speedMin:8, speedMax:18, wanderAmt:0 },
+    runnerColors:['#fb923c','#facc15','#4ade80'],
+    runnerNames:['Tiko','Vana','Roku'],
+    obstacleKinds:['totem','mossyRock'], pawIcon:'🪶', frozenIcon:'🪢', caughtVerb:'Bound', freeVerb:'Untied', freeAction:'untie',
+    endLines:{
+      chaserWin:'Every runner is bound in vine and root. The chief claims the grove.',
+      chaserLose:'Time ran out — at least one runner vanished into the leaves.',
+      runnersLose:'The whole tribe got bound before the drums stopped.',
+      runnersWinFrozen:'You were still bound when the drums stopped, but your tribe escaped.',
+      runnersWin:'The drums stop — your tribe slipped away clean.',
+    },
+  },
+  factory: {
+    id:'factory', icon:'🏭', label:'Factory',
+    chaserName:'Phantom Foreman', chaserShort:'Phantom',
+    runnerTeamName:'Factory Crew', runnerShort:'Worker',
+    palette:{
+      bgTop:'#13131a', bgBottom:'#1b1b24', groundTop:'#454552', groundBottom:'#2e2e38',
+      grid:'rgba(255,255,255,0.06)', vignette:'rgba(250,204,21,0.08)',
+      decor:'rgba(148,163,184,0.12)', accent:'#38bdf8',
+    },
+    ambient:{ mode:'rise', color:'rgba(226,232,240,0.45)', count:46, minR:1, maxR:2.5, speedMin:10, speedMax:26, wanderAmt:10 },
+    runnerColors:['#facc15','#f87171','#60a5fa'],
+    runnerNames:['Sparky','Bolt','Gizmo'],
+    obstacleKinds:['crate','barrel'], pawIcon:'⚙️', frozenIcon:'🔌', caughtVerb:'Shut Down', freeVerb:'Rebooted', freeAction:'reboot',
+    endLines:{
+      chaserWin:'Every worker is shut down cold. The Phantom haunts the floor alone.',
+      chaserLose:'Time ran out — at least one worker clocked out free.',
+      runnersLose:'The whole crew got shut down before the whistle.',
+      runnersWinFrozen:'You were still shut down at the whistle, but your crew made it out.',
+      runnersWin:'The whistle blows — your crew clocks out together.',
+    },
+  },
+};
+let selectedTheme = 'tundra';
+function theme(){ return THEMES[selectedTheme]; }
+
+/* --------------------------- UTILITIES --------------------------- */
+const TAU = Math.PI * 2;
+function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function rrect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function rand(min,max){ return min + Math.random()*(max-min); }
+function choice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function shuffle(arr){
+  const a = arr.slice();
+  for (let i=a.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+function fmtTime(s){
+  s = Math.max(0,Math.ceil(s));
+  const m = Math.floor(s/60), sec = s%60;
+  return m + ':' + String(sec).padStart(2,'0');
+}
+
+/* --------------------------- AUDIO (procedural, no assets) --------------------------- */
+let audioCtx = null;
+function ensureAudio(){ if(!audioCtx){ try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+function playTone(freq, dur, type, vol){
+  if(!audioCtx) return;
+  try{
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.value = freq;
+    gain.gain.value = vol!==undefined?vol:0.08;
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    const t0 = audioCtx.currentTime;
+    gain.gain.setValueAtTime(gain.gain.value, t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    osc.start(t0); osc.stop(t0+dur+0.02);
+  }catch(e){}
+}
+const SFX = {
+  ability: ()=>playTone(520,0.12,'square',0.06),
+  stun: ()=>playTone(160,0.25,'sawtooth',0.07),
+  capture: ()=>{ playTone(700,0.1,'square',0.08); setTimeout(()=>playTone(420,0.18,'square',0.07),90); },
+  countdown: ()=>playTone(440,0.12,'sine',0.07),
+  go: ()=>playTone(880,0.2,'sine',0.09),
+  win: ()=>{ [523,659,784,1046].forEach((f,i)=>setTimeout(()=>playTone(f,0.22,'sine',0.07), i*110)); },
+  lose: ()=>{ [392,330,262].forEach((f,i)=>setTimeout(()=>playTone(f,0.3,'sawtooth',0.06), i*140)); },
+};
+
+/* --------------------------- DOM REFS --------------------------- */
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+const minimapCanvas = document.getElementById('minimap');
+const mctx = minimapCanvas.getContext('2d');
+
+const screens = {
+  menu: document.getElementById('screen-menu'),
+  matchmaking: document.getElementById('screen-matchmaking'),
+  reveal: document.getElementById('screen-reveal'),
+  countdown: document.getElementById('screen-countdown'),
+  end: document.getElementById('screen-end'),
+};
+const hud = document.getElementById('hud');
+const pauseOverlay = document.getElementById('pause-overlay');
+const touchControls = document.getElementById('touch-controls');
+
+function showScreen(name){
+  Object.values(screens).forEach(s=>s.classList.add('hidden'));
+  if (name && screens[name]) screens[name].classList.remove('hidden');
+}
+
+/* --------------------------- GLOBAL STATE --------------------------- */
+let phase = 'menu'; // menu, matchmaking, reveal, countdown, playing, paused, ended
+let characters = [];
+let chaserChar = null;
+let runnerChars = [];
+let obstacles = [];
+let projectiles = [];
+let vineZones = [];
+let particles = [];
+let snowflakes = [];
+let timeRemaining = CONFIG.match.duration;
+let camera = { x:0, y:0, isFree:false, freeX:0, freeY:0 };
+let lastTs = 0;
+let isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+
+const keys = {};
+const touchMove = { x:0, y:0, active:false };
+
+/* --------------------------- CANVAS SIZING --------------------------- */
+function resize(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  minimapCanvas.width = minimapCanvas.clientWidth * devicePixelRatio;
+  minimapCanvas.height = minimapCanvas.clientHeight * devicePixelRatio;
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* --------------------------- AMBIENT WEATHER (theme-driven) --------------------------- */
+function initAmbient(){
+  snowflakes = [];
+  const a = theme().ambient;
+  for(let i=0;i<a.count;i++){
+    snowflakes.push({
+      x: Math.random()*window.innerWidth,
+      y: Math.random()*window.innerHeight,
+      r: rand(a.minR,a.maxR),
+      speed: rand(a.speedMin,a.speedMax),
+      drift: rand(-(a.wanderAmt||0), (a.wanderAmt||0)) || rand(2,8),
+      phase: Math.random()*TAU,
+    });
+  }
+}
+function updateAmbient(dt){
+  const a = theme().ambient;
+  for (const f of snowflakes){
+    if (a.mode === 'float'){
+      // gentle in-place bob (fireflies) rather than a steady fall/rise
+      f.phase += dt*0.7;
+      f.x += Math.cos(f.phase)*f.drift*dt;
+      f.y += Math.sin(f.phase*1.3)*f.drift*dt*0.7;
+      if (f.y > window.innerHeight+5) f.y = -5;
+      if (f.y < -5) f.y = window.innerHeight+5;
+    } else {
+      const dir = a.mode === 'rise' ? -1 : 1;
+      f.y += dir*f.speed*dt;
+      f.x += Math.sin(f.phase + f.y*0.01)*f.drift*dt;
+      if (dir>0 && f.y > window.innerHeight+5){ f.y=-5; f.x=Math.random()*window.innerWidth; }
+      if (dir<0 && f.y < -5){ f.y=window.innerHeight+5; f.x=Math.random()*window.innerWidth; }
+    }
+    if (f.x > window.innerWidth+5) f.x = -5;
+    if (f.x < -5) f.x = window.innerWidth+5;
+  }
+}
+function drawAmbient(){
+  const a = theme().ambient;
+  ctx.fillStyle = a.color;
+  for(const f of snowflakes){
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, f.r, 0, TAU);
+    ctx.fill();
+  }
+}
+
+/* --------------------------- CHARACTER FACTORY --------------------------- */
+function createCharacter(opts){
+  return Object.assign({
+    id:'', team:'runner', name:'', color:'#22d3ee', x:0, y:0,
+    moveDir:{x:0,y:0}, facing:0, aimAngle:0,
+    radius: CONFIG.runner.radius, speed: CONFIG.runner.speed,
+    isPlayer:false, ability:null, cooldown:0,
+    status:'normal', statusTimer:0, invulnTimer:0,
+    aimTimer:0, dashDir:{x:0,y:0}, leapDir:{x:0,y:0}, wanderAngle: Math.random()*TAU,
+    flashTimer:0, target:null, walkCycle:0,
+  }, opts);
+}
+
+/* --------------------------- MATCH SETUP --------------------------- */
+function setupMatch(){
+  characters = [];
+  particles = [];
+  projectiles = [];
+  vineZones = [];
+  timeRemaining = CONFIG.match.duration;
+  camera.isFree = false;
+
+  const t = theme();
+  const playerIsChaser = Math.random() < 0.25;
+  const chaserAbility = choice(['bullSmash','vineAttack','boulderThrow']);
+  const runnerAbilities = shuffle(['zap','groundHog','leaper']);
+
+  chaserChar = createCharacter({
+    id:'chaser', team:'chaser', name:t.chaserName, color:t.palette.accent,
+    radius: CONFIG.chaser.radius, speed: CONFIG.chaser.speed,
+    ability: chaserAbility, isPlayer: playerIsChaser,
+  });
+
+  runnerChars = [];
+  for(let i=0;i<3;i++){
+    runnerChars.push(createCharacter({
+      id:'runner'+i, team:'runner', name:t.runnerNames[i], color:t.runnerColors[i],
+      radius: CONFIG.runner.radius, speed: CONFIG.runner.speed,
+      ability: runnerAbilities[i], isPlayer:false,
+    }));
+  }
+  if (!playerIsChaser){
+    choice(runnerChars).isPlayer = true;
+  }
+
+  characters = [chaserChar, ...runnerChars];
+
+  placeStartPositions();
+  generateObstacles();
+  initAmbient();
+
+  return characters.find(c=>c.isPlayer);
+}
+
+function placeStartPositions(){
+  const cx = CONFIG.arena.width/2, cy = CONFIG.arena.height/2;
+  chaserChar.x = cx; chaserChar.y = cy;
+  chaserChar.facing = 0;
+
+  const baseAngles = [Math.PI*0.2, Math.PI*1.0, Math.PI*1.65];
+  const r = Math.min(CONFIG.arena.width, CONFIG.arena.height) * 0.36;
+  runnerChars.forEach((rc, i)=>{
+    const a = baseAngles[i] + rand(-0.18,0.18);
+    rc.x = clamp(cx + Math.cos(a)*r, rc.radius+60, CONFIG.arena.width-rc.radius-60);
+    rc.y = clamp(cy + Math.sin(a)*r, rc.radius+60, CONFIG.arena.height-rc.radius-60);
+    rc.facing = a + Math.PI;
+  });
+}
+
+function generateObstacles(){
+  obstacles = [];
+  const { width, height } = CONFIG.arena;
+  const kinds = theme().obstacleKinds;
+  let attempts = 0;
+  while (obstacles.length < CONFIG.obstacles.count && attempts < 800){
+    attempts++;
+    const radius = rand(CONFIG.obstacles.minRadius, CONFIG.obstacles.maxRadius);
+    const x = rand(radius+40, width-radius-40);
+    const y = rand(radius+40, height-radius-40);
+    if (dist({x,y}, {x:width/2,y:height/2}) < 260) continue; // keep center clear at start
+    let ok = true;
+    for(const o of obstacles){
+      if (dist({x,y}, o) < o.radius + radius + 50){ ok = false; break; }
+    }
+    if (!ok) continue;
+    obstacles.push({ x, y, radius, kind: Math.random()<0.5 ? kinds[0] : kinds[1], alive:true, seed: Math.random()*TAU });
+  }
+}
+
+/* --------------------------- INPUT --------------------------- */
+window.addEventListener('keydown', (e)=>{
+  keys[e.key.toLowerCase()] = true;
+  if (e.key === ' ') e.preventDefault();
+  if ((e.key === ' ' || e.key.toLowerCase()==='e') && !e.repeat){
+    tryActivateAbility(playerChar());
+  }
+  if (e.key === 'Escape'){
+    togglePause();
+  }
+});
+window.addEventListener('keyup', (e)=>{ keys[e.key.toLowerCase()] = false; });
+
+canvas.addEventListener('mousedown', (e)=>{
+  if (e.button === 0) tryActivateAbility(playerChar());
+});
+
+document.getElementById('ability-btn').addEventListener('click', ()=> tryActivateAbility(playerChar()));
+document.getElementById('ability-btn').addEventListener('touchstart', (e)=>{ e.preventDefault(); tryActivateAbility(playerChar()); }, {passive:false});
+
+// touch joystick
+const joyZone = document.getElementById('joystick-zone');
+const joyKnob = document.getElementById('joystick-knob');
+let joyActive = false, joyCenter = {x:0,y:0};
+function joyStart(clientX, clientY){
+  const rect = joyZone.getBoundingClientRect();
+  joyCenter = { x: rect.left+rect.width/2, y: rect.top+rect.height/2 };
+  joyActive = true;
+  joyMove(clientX, clientY);
+}
+function joyMove(clientX, clientY){
+  if (!joyActive) return;
+  let dx = clientX - joyCenter.x, dy = clientY - joyCenter.y;
+  const maxR = 38;
+  const len = Math.hypot(dx,dy);
+  if (len > maxR){ dx = dx/len*maxR; dy = dy/len*maxR; }
+  joyKnob.style.left = (35+dx) + 'px';
+  joyKnob.style.top = (35+dy) + 'px';
+  const nlen = Math.hypot(dx,dy);
+  if (nlen > 6){ touchMove.x = dx/maxR; touchMove.y = dy/maxR; touchMove.active = true; }
+  else { touchMove.x = 0; touchMove.y = 0; touchMove.active = false; }
+}
+function joyEnd(){
+  joyActive = false; touchMove.active = false; touchMove.x = 0; touchMove.y = 0;
+  joyKnob.style.left = '35px'; joyKnob.style.top = '35px';
+}
+joyZone.addEventListener('touchstart', (e)=>{ e.preventDefault(); const t=e.touches[0]; joyStart(t.clientX,t.clientY); }, {passive:false});
+joyZone.addEventListener('touchmove', (e)=>{ e.preventDefault(); const t=e.touches[0]; joyMove(t.clientX,t.clientY); }, {passive:false});
+joyZone.addEventListener('touchend', (e)=>{ e.preventDefault(); joyEnd(); }, {passive:false});
+
+function playerChar(){ return characters.find(c=>c.isPlayer); }
+
+/* --------------------------- ABILITY HELPERS --------------------------- */
+function abilityCooldown(name){ return CONFIG.abilities[name].cooldown; }
+function isBusy(c){ return ['dashing','aimingBoulder','leaping'].includes(c.status); }
+
+function tryActivateAbility(c){
+  if (!c || phase !== 'playing' || c.status === 'frozen') return;
+  if (c.status === 'aimingBoulder' && c.isPlayer){ confirmBoulderThrow(c); return; }
+  if (c.cooldown > 0) return;
+  if (isBusy(c) || c.status === 'stunned' || c.status === 'rooted') return;
+  activateAbility(c);
+}
+
+function activateAbility(c){
+  ensureAudio();
+  c.cooldown = abilityCooldown(c.ability);
+  SFX.ability();
+  switch(c.ability){
+    case 'bullSmash': startBullSmash(c); break;
+    case 'vineAttack': startVineAttack(c); break;
+    case 'boulderThrow': startBoulderAim(c); break;
+    case 'zap': doZap(c); break;
+    case 'groundHog': startGroundHog(c); break;
+    case 'leaper': doLeap(c); break;
+  }
+  if (c.isPlayer) flashStatusBanner(ABILITY_INFO[c.ability].name + '!');
+}
+
+function startBullSmash(c){
+  const a = c.facing;
+  c.status = 'dashing';
+  c.statusTimer = CONFIG.abilities.bullSmash.dashTime;
+  c.dashDir = { x: Math.cos(a), y: Math.sin(a) };
+  c.facing = a;
+  spawnParticles(c.x, c.y, '#dbeafe', 10, 90);
+}
+
+function startVineAttack(c){
+  const a = c.facing;
+  const cfg = CONFIG.abilities.vineAttack;
+  vineZones.push({
+    x: c.x + Math.cos(a)*cfg.range,
+    y: c.y + Math.sin(a)*cfg.range,
+    radius: cfg.radius, timer: cfg.duration, maxTimer: cfg.duration,
+  });
+}
+
+function startBoulderAim(c){
+  c.status = 'aimingBoulder';
+  c.aimTimer = c.isPlayer ? CONFIG.abilities.boulderThrow.aimTime : rand(0.35,0.7);
+  c.aimAngle = c.facing;
+}
+function confirmBoulderThrow(c){
+  const a = c.aimAngle;
+  projectiles.push({
+    x:c.x, y:c.y, dx:Math.cos(a), dy:Math.sin(a), traveled:0, owner:c,
+  });
+  c.status = 'normal';
+}
+
+function doZap(c){
+  const cfg = CONFIG.abilities.zap;
+  const a = c.facing;
+  c.x = clamp(c.x + Math.cos(a)*cfg.distance, c.radius, CONFIG.arena.width-c.radius);
+  c.y = clamp(c.y + Math.sin(a)*cfg.distance, c.radius, CONFIG.arena.height-c.radius);
+  c.invulnTimer = Math.max(c.invulnTimer, cfg.invuln);
+  spawnParticles(c.x, c.y, '#67e8f9', 14, 140);
+}
+
+function startGroundHog(c){
+  const cfg = CONFIG.abilities.groundHog;
+  c.status = 'invisible';
+  c.statusTimer = cfg.duration;
+  c.invulnTimer = Math.max(c.invulnTimer, cfg.duration);
+  spawnParticles(c.x, c.y, '#92694d', 10, 60);
+}
+
+function doLeap(c){
+  const cfg = CONFIG.abilities.leaper;
+  const a = c.facing;
+  c.status = 'leaping';
+  c.statusTimer = 0.42;
+  c.invulnTimer = Math.max(c.invulnTimer, cfg.invuln);
+  c.leapDir = { x: Math.cos(a), y: Math.sin(a) };
+  c.leapDist = cfg.distance;
+  c.leapElapsed = 0;
+  c.leapTotal = 0.42;
+}
+
+/* --------------------------- PARTICLES --------------------------- */
+function spawnParticles(x,y,color,count,speed){
+  for(let i=0;i<count;i++){
+    const a = Math.random()*TAU;
+    const s = rand(speed*0.3, speed);
+    particles.push({ x,y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, life: rand(0.3,0.7), maxLife: 0.7, color, size: rand(2,5) });
+  }
+}
+function updateParticles(dt){
+  for(let i=particles.length-1;i>=0;i--){
+    const p = particles[i];
+    p.x += p.vx*dt; p.y += p.vy*dt;
+    p.vx *= 0.9; p.vy *= 0.9;
+    p.life -= dt;
+    if (p.life <= 0) particles.splice(i,1);
+  }
+}
+function drawParticles(){
+  for(const p of particles){
+    ctx.globalAlpha = clamp(p.life/p.maxLife, 0, 1);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,TAU); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* --------------------------- TOASTS / BANNERS --------------------------- */
+function toast(msg){
+  const wrap = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(()=>el.remove(), 2100);
+}
+let bannerTimeout = null;
+function flashStatusBanner(text, color){
+  const b = document.getElementById('status-banner');
+  b.textContent = text;
+  b.style.color = color || 'var(--frost-white)';
+  b.classList.add('show');
+  clearTimeout(bannerTimeout);
+  bannerTimeout = setTimeout(()=> b.classList.remove('show'), 700);
+}
+
+/* --------------------------- STATUS / MOVEMENT UPDATE --------------------------- */
+function updateCharacterTimers(c, dt){
+  if (c.cooldown > 0) c.cooldown = Math.max(0, c.cooldown - dt);
+  if (c.invulnTimer > 0) c.invulnTimer = Math.max(0, c.invulnTimer - dt);
+  if (c.flashTimer > 0) c.flashTimer = Math.max(0, c.flashTimer - dt);
+
+  if (c.status === 'stunned' || c.status === 'invisible'){
+    c.statusTimer -= dt;
+    if (c.statusTimer <= 0) c.status = 'normal';
+  }
+}
+
+function updateRootState(){
+  for (const r of runnerChars){
+    if (r.status === 'frozen') continue;
+    if (['stunned','dashing','leaping','aimingBoulder'].includes(r.status)) continue;
+    const inZone = vineZones.some(z => z.timer > 0 && dist(r,z) < z.radius);
+    if (inZone && r.invulnTimer <= 0){
+      r.status = 'rooted';
+    } else if (r.status === 'rooted' && !inZone){
+      r.status = 'normal';
+    }
+  }
+}
+
+function updateRescues(){
+  const t = theme();
+  const free = runnerChars.filter(r => r.status !== 'frozen');
+  for (const frozenR of runnerChars){
+    if (frozenR.status !== 'frozen') continue;
+    for (const rescuer of free){
+      if (dist(frozenR, rescuer) < frozenR.radius + rescuer.radius + CONFIG.rescue.buffer){
+        frozenR.status = 'normal';
+        frozenR.invulnTimer = Math.max(frozenR.invulnTimer, CONFIG.rescue.invuln);
+        rescuer.invulnTimer = Math.max(rescuer.invulnTimer, CONFIG.rescue.invuln);
+        spawnParticles(frozenR.x, frozenR.y, '#bae6fd', 18, 150);
+        SFX.ability();
+        if (frozenR.isPlayer) flashStatusBanner(t.freeVerb.toUpperCase()+'!', t.palette.accent);
+        toast((rescuer.isPlayer ? 'You' : rescuer.name) + ' ' + t.freeVerb.toLowerCase() + ' ' + (frozenR.isPlayer ? 'you' : frozenR.name) + '!');
+        break;
+      }
+    }
+  }
+}
+
+function applyStun(target, duration){
+  if (target.status === 'frozen' || target.invulnTimer > 0 || target.status === 'invisible' || target.status === 'leaping') return false;
+  target.status = 'stunned';
+  target.statusTimer = duration;
+  SFX.stun();
+  if (target.isPlayer) flashStatusBanner('STUNNED!', '#ef4444');
+  spawnParticles(target.x, target.y, '#fde68a', 8, 100);
+  return true;
+}
+
+function clampToArena(c){
+  c.x = clamp(c.x, c.radius, CONFIG.arena.width - c.radius);
+  c.y = clamp(c.y, c.radius, CONFIG.arena.height - c.radius);
+}
+
+function resolveObstacleCollisions(c){
+  for (const o of obstacles){
+    if (!o.alive) continue;
+    const d = dist(c,o);
+    const minD = c.radius + o.radius;
+    if (d < minD && d > 0.001){
+      const push = (minD - d);
+      c.x += (c.x-o.x)/d * push;
+      c.y += (c.y-o.y)/d * push;
+    }
+  }
+}
+
+function updateCharacterMovement(c, dt){
+  if (c.status === 'dashing'){
+    c.walkCycle += dt*26;
+    const cfg = CONFIG.abilities.bullSmash;
+    c.x += c.dashDir.x * cfg.dashSpeed * dt;
+    c.y += c.dashDir.y * cfg.dashSpeed * dt;
+    clampToArena(c);
+    for (const o of obstacles){
+      if (o.alive && dist(c,o) < o.radius + cfg.destroyRadius){
+        o.alive = false;
+        spawnParticles(o.x, o.y, OBSTACLE_DEBRIS_COLOR[o.kind] || '#94a3b8', 14, 120);
+      }
+    }
+    for (const r of runnerChars){
+      if (r.status === 'frozen') continue;
+      if (dist(c,r) < cfg.hitRadius + r.radius){
+        applyStun(r, cfg.stunTime);
+      }
+    }
+    c.statusTimer -= dt;
+    if (c.statusTimer <= 0) c.status = 'normal';
+    return;
+  }
+
+  if (c.status === 'leaping'){
+    c.leapElapsed += dt;
+    const t = clamp(c.leapElapsed / c.leapTotal, 0, 1);
+    const step = (c.leapDist/c.leapTotal) * dt;
+    c.x += c.leapDir.x * step;
+    c.y += c.leapDir.y * step;
+    clampToArena(c);
+    if (t >= 1) c.status = 'normal';
+    return;
+  }
+
+  if (c.status === 'aimingBoulder'){
+    c.aimTimer -= dt;
+    if (c.aimTimer <= 0) confirmBoulderThrow(c);
+    return;
+  }
+
+  if (c.status === 'stunned' || c.status === 'rooted' || c.status === 'frozen'){
+    return; // frozen in place
+  }
+
+  let spd = c.speed;
+  if (c.status === 'invisible') spd *= CONFIG.abilities.groundHog.speedMult;
+  if (c.moveDir.x || c.moveDir.y){
+    c.x += c.moveDir.x * spd * dt;
+    c.y += c.moveDir.y * spd * dt;
+    c.facing = Math.atan2(c.moveDir.y, c.moveDir.x);
+    c.walkCycle += dt*9;
+  }
+  clampToArena(c);
+  resolveObstacleCollisions(c);
+}
+
+/* --------------------------- PLAYER INPUT --------------------------- */
+function handlePlayerInput(p, dt){
+  if (!p || p.status === 'frozen'){ if(p) p.moveDir = {x:0,y:0}; return; }
+
+  if (['stunned','rooted','dashing','leaping','aimingBoulder'].includes(p.status)){
+    p.moveDir = {x:0,y:0};
+    return;
+  }
+  let mx=0, my=0;
+  if (keys['w']||keys['arrowup']) my -= 1;
+  if (keys['s']||keys['arrowdown']) my += 1;
+  if (keys['a']||keys['arrowleft']) mx -= 1;
+  if (keys['d']||keys['arrowright']) mx += 1;
+  if (touchMove.active){ mx = touchMove.x; my = touchMove.y; }
+  const len = Math.hypot(mx,my);
+  p.moveDir = len > 0.05 ? { x:mx/len, y:my/len } : { x:0, y:0 };
+}
+
+/* --------------------------- AI: CHASER --------------------------- */
+function pickChaserTarget(c){
+  const candidates = runnerChars.filter(r => r.status !== 'frozen' && r.status !== 'invisible');
+  if (candidates.length === 0){ c.target = null; return null; }
+  let nearest = candidates[0], nearestD = dist(c, nearest);
+  for (const r of candidates){
+    const d = dist(c, r);
+    if (d < nearestD){ nearestD = d; nearest = r; }
+  }
+  const current = c.target;
+  if (current && candidates.includes(current)){
+    const curD = dist(c, current);
+    if (nearestD < curD - CONFIG.chaser.targetSwitchMargin) c.target = nearest;
+  } else {
+    c.target = nearest;
+  }
+  return c.target;
+}
+
+function updateChaserAI(c, dt){
+  if (isBusy(c)) { c.moveDir = {x:0,y:0}; return; }
+  const target = pickChaserTarget(c);
+  if (!target){ c.moveDir = {x:0,y:0}; return; }
+
+  let dx = target.x - c.x, dy = target.y - c.y;
+  const len = Math.hypot(dx,dy) || 1;
+  dx/=len; dy/=len;
+
+  let avx=0, avy=0;
+  for (const o of obstacles){
+    if (!o.alive) continue;
+    const dd = dist(c,o);
+    const minD = o.radius + c.radius + 44;
+    if (dd < minD){
+      const px = (c.x-o.x)/dd, py = (c.y-o.y)/dd;
+      const w = (minD-dd)/minD;
+      avx += px*w*1.6; avy += py*w*1.6;
+    }
+  }
+
+  let mx = dx*1.3 + avx, my = dy*1.3 + avy;
+  const ml = Math.hypot(mx,my);
+  c.moveDir = ml > 0.001 ? { x:mx/ml, y:my/ml } : { x:0, y:0 };
+  c.facing = Math.atan2(dy,dx);
+
+  if (c.cooldown <= 0){
+    const d = dist(c,target);
+    let chance = 0;
+    if (c.ability === 'bullSmash' && d < 230 && d > 40) chance = 2.0;
+    if (c.ability === 'vineAttack' && d < 250) chance = 1.6;
+    if (c.ability === 'boulderThrow' && d > 200 && d < 520) chance = 1.3;
+    if (Math.random() < chance*dt){
+      if (c.ability === 'boulderThrow') c.facing = Math.atan2(target.y-c.y, target.x-c.x);
+      activateAbility(c);
+    }
+  }
+}
+
+/* --------------------------- AI: RUNNERS --------------------------- */
+function updateRunnerAI(r, dt){
+  if (r.status === 'frozen') return;
+  if (['stunned','rooted'].includes(r.status)){ r.moveDir = {x:0,y:0}; return; }
+  if (isBusy(r)){ return; }
+
+  const d = dist(r, chaserChar);
+  let dx = r.x - chaserChar.x, dy = r.y - chaserChar.y;
+  const len = Math.hypot(dx,dy) || 1;
+  dx/=len; dy/=len;
+
+  let avx=0, avy=0;
+  for (const o of obstacles){
+    if (!o.alive) continue;
+    const dd = dist(r,o);
+    const minD = o.radius + r.radius + 40;
+    if (dd < minD){
+      const px = (r.x-o.x)/dd, py = (r.y-o.y)/dd;
+      const w = (minD-dd)/minD;
+      avx += px*w*1.5; avy += py*w*1.5;
+    }
+  }
+  let wx=0, wy=0; const margin=130;
+  if (r.x < margin) wx += 1;
+  if (r.x > CONFIG.arena.width-margin) wx -= 1;
+  if (r.y < margin) wy += 1;
+  if (r.y > CONFIG.arena.height-margin) wy -= 1;
+
+  let mx = dx*1.25 + avx + wx, my = dy*1.25 + avy + wy;
+
+  const frozenMate = runnerChars
+    .filter(m => m !== r && m.status === 'frozen')
+    .sort((a,b) => dist(r,a) - dist(r,b))[0];
+
+  if (frozenMate){
+    let sx = frozenMate.x - r.x, sy = frozenMate.y - r.y;
+    const slen = Math.hypot(sx,sy) || 1;
+    sx/=slen; sy/=slen;
+    const danger = clamp(1 - (d-120)/280, 0, 1);
+    const rescueWeight = (1-danger) * 1.8;
+    mx += sx*rescueWeight; my += sy*rescueWeight;
+  } else if (d > 560){
+    r.wanderAngle += rand(-0.5,0.5)*dt*4;
+    mx += Math.cos(r.wanderAngle)*0.55; my += Math.sin(r.wanderAngle)*0.55;
+  }
+
+  const ml = Math.hypot(mx,my);
+  r.moveDir = ml > 0.001 ? { x:mx/ml, y:my/ml } : { x:0, y:0 };
+  if (r.moveDir.x||r.moveDir.y) r.facing = Math.atan2(r.moveDir.y, r.moveDir.x);
+
+  if (r.cooldown <= 0){
+    let threshold = 0;
+    if (r.ability === 'zap') threshold = 150;
+    if (r.ability === 'groundHog') threshold = 105;
+    if (r.ability === 'leaper') threshold = 165;
+    if (d < threshold && Math.random() < 2.4*dt){
+      activateAbility(r);
+    }
+  }
+}
+
+/* --------------------------- PROJECTILES / VINES --------------------------- */
+function updateProjectiles(dt){
+  const cfg = CONFIG.abilities.boulderThrow;
+  for (let i=projectiles.length-1; i>=0; i--){
+    const p = projectiles[i];
+    const step = cfg.speed*dt;
+    p.x += p.dx*step; p.y += p.dy*step; p.traveled += step;
+    let hit = false;
+    for (const r of runnerChars){
+      if (r.status === 'frozen') continue;
+      if (dist(p,r) < cfg.hitRadius + r.radius - 14){
+        applyStun(r, cfg.stunTime);
+        hit = true;
+        break;
+      }
+    }
+    if (hit || p.traveled >= cfg.maxRange || p.x<0||p.y<0||p.x>CONFIG.arena.width||p.y>CONFIG.arena.height){
+      if (!hit) spawnParticles(p.x,p.y,'#94a3b8',8,80);
+      projectiles.splice(i,1);
+    }
+  }
+}
+function updateVineZones(dt){
+  for (let i=vineZones.length-1; i>=0; i--){
+    vineZones[i].timer -= dt;
+    if (vineZones[i].timer <= 0) vineZones.splice(i,1);
+  }
+}
+
+/* --------------------------- FREEZE / RESCUE / WIN CHECK --------------------------- */
+function checkFreezes(){
+  const t = theme();
+  for (const r of runnerChars){
+    if (r.status === 'frozen') continue;
+    if (r.invulnTimer > 0 || r.status === 'invisible') continue;
+    const d = dist(chaserChar, r);
+    if (d < chaserChar.radius + r.radius + CONFIG.chaser.captureBuffer){
+      r.status = 'frozen';
+      r.iceSeed = Math.random()*TAU;
+      SFX.capture();
+      spawnParticles(r.x, r.y, r.color, 22, 170);
+      if (r.isPlayer){
+        flashStatusBanner(t.caughtVerb.toUpperCase()+'!', t.palette.accent);
+        toast('You got '+t.caughtVerb.toLowerCase()+' — wait for a teammate to '+t.freeAction+' you!');
+      } else {
+        toast(r.name + ' got ' + t.caughtVerb.toLowerCase() + '!');
+      }
+    }
+  }
+  if (runnerChars.every(r => r.status === 'frozen')){
+    endMatch(true);
+  }
+}
+
+/* --------------------------- CAMERA --------------------------- */
+function updateCamera(dt = 0){
+  const p = playerChar();
+  if (!p) return;
+
+  // Allow spectators (frozen players) to pan the camera using inputs
+  if (p.status === 'frozen') {
+    if (!camera.isFree) {
+      camera.isFree = true;
+      camera.freeX = p.x;
+      camera.freeY = p.y;
+    }
+
+    let mx=0, my=0;
+    if (keys['w']||keys['arrowup']) my -= 1;
+    if (keys['s']||keys['arrowdown']) my += 1;
+    if (keys['a']||keys['arrowleft']) mx -= 1;
+    if (keys['d']||keys['arrowright']) mx += 1;
+    if (touchMove.active){ mx = touchMove.x; my = touchMove.y; }
+
+    const len = Math.hypot(mx,my);
+    if (len > 0.05) {
+      const panSpeed = 600; // panning speed in pixels per second
+      camera.freeX += (mx/len) * panSpeed * dt;
+      camera.freeY += (my/len) * panSpeed * dt;
+    }
+
+    // Keep panning within arena bounds
+    camera.freeX = clamp(camera.freeX, 0, CONFIG.arena.width);
+    camera.freeY = clamp(camera.freeY, 0, CONFIG.arena.height);
+
+    camera.x = clamp(camera.freeX - canvas.width/2, 0, Math.max(0, CONFIG.arena.width - canvas.width));
+    camera.y = clamp(camera.freeY - canvas.height/2, 0, Math.max(0, CONFIG.arena.height - canvas.height));
+  } else {
+    camera.isFree = false;
+    camera.x = clamp(p.x - canvas.width/2, 0, Math.max(0, CONFIG.arena.width - canvas.width));
+    camera.y = clamp(p.y - canvas.height/2, 0, Math.max(0, CONFIG.arena.height - canvas.height));
+  }
+}
+
+/* --------------------------- MAIN UPDATE --------------------------- */
+function update(dt){
+  updateAmbient(dt);
+  if (phase !== 'playing') return;
+
+  timeRemaining -= dt;
+  if (timeRemaining <= 0){
+    timeRemaining = 0;
+    endMatch(false, true);
+    return;
+  }
+
+  for (const c of characters) updateCharacterTimers(c, dt);
+  updateRootState();
+
+  const p = playerChar();
+  handlePlayerInput(p, dt);
+  for (const c of characters){
+    if (c.isPlayer || c.status === 'frozen') continue;
+    if (c.team === 'chaser') updateChaserAI(c, dt);
+    else updateRunnerAI(c, dt);
+  }
+
+  for (const c of characters){
+    if (c.status === 'frozen') continue;
+    updateCharacterMovement(c, dt);
+  }
+
+  updateProjectiles(dt);
+  updateVineZones(dt);
+  updateParticles(dt);
+  updateRescues();
+  checkFreezes();
+  updateCamera(dt);
+  updateHUD(dt);
+}
+
+/* --------------------------- WIN / END --------------------------- */
+function endMatch(chaserWon, timeUp){
+  phase = 'ended';
+  const p = playerChar();
+  const t = theme();
+  const playedChaser = p.team === 'chaser';
+  const frozenCount = runnerChars.filter(r=>r.status==='frozen').length;
+  const playerWasFrozen = p.status === 'frozen';
+
+  const playerWon = playedChaser ? chaserWon : !chaserWon;
+
+  document.getElementById('end-banner').textContent = playerWon ? 'Victory!' : 'Defeat';
+  document.getElementById('end-banner').className = 'result-banner ' + (playerWon ? 'win' : 'lose');
+
+  let sub;
+  if (playedChaser){
+    sub = chaserWon ? t.endLines.chaserWin : t.endLines.chaserLose;
+  } else if (chaserWon){
+    sub = t.endLines.runnersLose;
+  } else {
+    sub = playerWasFrozen ? t.endLines.runnersWinFrozen : t.endLines.runnersWin;
+  }
+  document.getElementById('end-sub').textContent = sub;
+  document.getElementById('stat-time').textContent = fmtTime(CONFIG.match.duration - timeRemaining);
+  document.getElementById('stat-captured').textContent = frozenCount + '/3';
+  document.getElementById('stat-role').textContent = playedChaser ? t.chaserShort : t.runnerShort;
+
+  hud.classList.add('hidden');
+  touchControls.classList.add('hidden');
+  showScreen('end');
+  ensureAudio();
+  playerWon ? SFX.win() : SFX.lose();
+}
+
+/* --------------------------- RENDER --------------------------- */
+function drawBackdrop(){
+  const p = theme().palette;
+  const g = ctx.createLinearGradient(0,0,0,canvas.height);
+  g.addColorStop(0, p.bgTop);
+  g.addColorStop(1, p.bgBottom);
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+}
+
+function drawArenaGround(){
+  const { width, height } = CONFIG.arena;
+  const p = theme().palette;
+  const g = ctx.createLinearGradient(0,0,0,height);
+  g.addColorStop(0, p.groundTop);
+  g.addColorStop(1, p.groundBottom);
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,width,height);
+
+  // faint terrain grid
+  ctx.strokeStyle = p.grid;
+  ctx.lineWidth = 1;
+  for (let x=0; x<width; x+=80){
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,height); ctx.stroke();
+  }
+  for (let y=0; y<height; y+=80){
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(width,y); ctx.stroke();
+  }
+
+  // decorative terrain blobs (ponds / mud / oil / paint, depending on theme)
+  ctx.fillStyle = p.decor;
+  [[0.18,0.22,180],[0.78,0.62,230],[0.34,0.82,150],[0.62,0.18,140]].forEach(([fx,fy,r])=>{
+    ctx.beginPath(); ctx.ellipse(width*fx, height*fy, r, r*0.6, 0.3, 0, TAU); ctx.fill();
+  });
+
+  // boundary vignette
+  const edge = 140;
+  const vg = ctx.createLinearGradient(0,0,edge,0);
+  vg.addColorStop(0,p.vignette); vg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle = vg; ctx.fillRect(0,0,edge,height);
+  ctx.save(); ctx.translate(width,0); ctx.scale(-1,1); ctx.fillRect(0,0,edge,height); ctx.restore();
+  const vg2 = ctx.createLinearGradient(0,0,0,edge);
+  vg2.addColorStop(0,p.vignette); vg2.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle = vg2; ctx.fillRect(0,0,width,edge);
+  ctx.save(); ctx.translate(0,height); ctx.scale(1,-1); ctx.fillRect(0,0,width,edge); ctx.restore();
+}
+
+/* ---- per-theme obstacle art (2 kinds per theme, shared 'rock'/'tree'-style physics) ---- */
+const OBSTACLE_DEBRIS_COLOR = {
+  rock:'#94a3b8', tree:'#4d7c0f', locker:'#94a3b8', hedge:'#3f8f54',
+  totem:'#8a5a2b', mossyRock:'#94a3b8', crate:'#a16207', barrel:'#c2410c',
+};
+
+function drawRock(r){
+  ctx.beginPath(); ctx.arc(0,0,r,0,TAU);
+  const g = ctx.createRadialGradient(-r*0.3,-r*0.3,2,0,0,r);
+  g.addColorStop(0,'#cbd5e1'); g.addColorStop(1,'#64748b');
+  ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth=2; ctx.stroke();
+}
+function drawTree(r){
+  ctx.fillStyle = '#6b4226';
+  ctx.fillRect(-r*0.14, 0, r*0.28, r*0.7);
+  ctx.beginPath(); ctx.arc(0,-r*0.25, r*0.78, 0, TAU);
+  const g = ctx.createRadialGradient(-8,-r*0.4,2,0,-r*0.25,r*0.8);
+  g.addColorStop(0,'#bfeec0'); g.addColorStop(1,'#2f6d3f');
+  ctx.fillStyle = g; ctx.fill();
+}
+function drawLocker(r){
+  rrect(-r*0.55,-r*1.1,r*1.1,r*1.85,r*0.08);
+  const g = ctx.createLinearGradient(-r*0.5,0,r*0.5,0);
+  g.addColorStop(0,'#94a3b8'); g.addColorStop(0.5,'#e2e8f0'); g.addColorStop(1,'#64748b');
+  ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,-r*1.1); ctx.lineTo(0,r*0.75); ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 1.5;
+  for (let i=0;i<3;i++){
+    const y = -r*0.7 + i*r*0.18;
+    ctx.beginPath(); ctx.moveTo(-r*0.4,y); ctx.lineTo(-r*0.08,y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r*0.08,y); ctx.lineTo(r*0.4,y); ctx.stroke();
+  }
+  ctx.fillStyle = '#334155';
+  ctx.beginPath(); ctx.arc(-r*0.12,r*0.1,r*0.07,0,TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(r*0.12,r*0.1,r*0.07,0,TAU); ctx.fill();
+}
+function drawHedge(r, seed){
+  const bumps = 5;
+  for (let i=0;i<bumps;i++){
+    const a = (i/bumps)*TAU + seed;
+    const bx = Math.cos(a)*r*0.4, by = Math.sin(a)*r*0.25;
+    ctx.beginPath(); ctx.arc(bx,by,r*0.55,0,TAU);
+    ctx.fillStyle = i%2===0 ? '#3f8f54' : '#56b46e';
+    ctx.fill();
+  }
+  ctx.beginPath(); ctx.arc(0,0,r*0.55,0,TAU); ctx.fillStyle = '#4aa860'; ctx.fill();
+}
+function drawTotem(r){
+  ctx.fillStyle = '#6b4a2c';
+  rrect(-r*0.26,-r*1.3,r*0.52,r*2.0,r*0.06); ctx.fill();
+  for (let i=0;i<3;i++){
+    const y = -r*1.0 + i*r*0.62;
+    ctx.fillStyle = i%2===0 ? '#caa472' : '#8a5a2b';
+    rrect(-r*0.22,y,r*0.44,r*0.5,r*0.05); ctx.fill();
+    ctx.fillStyle = '#1f2937';
+    ctx.beginPath(); ctx.arc(-r*0.1,y+r*0.18,r*0.06,0,TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(r*0.1,y+r*0.18,r*0.06,0,TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0,y+r*0.36,r*0.12,r*0.05,0,0,TAU); ctx.fill();
+  }
+  ctx.fillStyle = '#dc2626';
+  ctx.beginPath(); ctx.moveTo(0,-r*1.3); ctx.lineTo(-r*0.12,-r*1.7); ctx.lineTo(r*0.12,-r*1.7); ctx.closePath(); ctx.fill();
+}
+function drawMossyRock(r, seed){
+  drawRock(r);
+  ctx.fillStyle = 'rgba(74,168,96,0.65)';
+  for (let i=0;i<4;i++){
+    const a = (i/4)*TAU + seed;
+    ctx.beginPath(); ctx.arc(Math.cos(a)*r*0.5,Math.sin(a)*r*0.5,r*0.3,0,TAU); ctx.fill();
+  }
+}
+function drawCrate(r){
+  rrect(-r*0.8,-r*0.8,r*1.6,r*1.6,r*0.06);
+  ctx.fillStyle = '#a16207'; ctx.fill();
+  ctx.strokeStyle = '#713f12'; ctx.lineWidth = r*0.07;
+  ctx.beginPath(); ctx.moveTo(-r*0.8,0); ctx.lineTo(r*0.8,0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,-r*0.8); ctx.lineTo(0,r*0.8); ctx.stroke();
+  ctx.strokeRect(-r*0.8,-r*0.8,r*1.6,r*1.6);
+}
+function drawBarrel(r){
+  rrect(-r*0.62,-r*0.95,r*1.24,r*1.9,r*0.3);
+  const g = ctx.createLinearGradient(-r*0.6,0,r*0.6,0);
+  g.addColorStop(0,'#9a3412'); g.addColorStop(0.5,'#c2410c'); g.addColorStop(1,'#7c2d12');
+  ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 2;
+  for (const yy of [-r*0.55,0,r*0.55]){ ctx.beginPath(); ctx.moveTo(-r*0.62,yy); ctx.lineTo(r*0.62,yy); ctx.stroke(); }
+}
+
+function drawObstacles(){
+  for (const o of obstacles){
+    if (!o.alive) continue;
+    ctx.save();
+    ctx.translate(o.x,o.y);
+    ctx.beginPath(); ctx.ellipse(0, o.radius*0.55, o.radius*0.95, o.radius*0.35, 0, 0, TAU);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fill();
+    switch(o.kind){
+      case 'rock': drawRock(o.radius); break;
+      case 'tree': drawTree(o.radius); break;
+      case 'locker': drawLocker(o.radius); break;
+      case 'hedge': drawHedge(o.radius, o.seed); break;
+      case 'totem': drawTotem(o.radius); break;
+      case 'mossyRock': drawMossyRock(o.radius, o.seed); break;
+      case 'crate': drawCrate(o.radius); break;
+      case 'barrel': drawBarrel(o.radius); break;
+      default: drawRock(o.radius);
+    }
+    ctx.restore();
+  }
+}
+
+function drawVineZones(){
+  for (const z of vineZones){
+    const a = clamp(z.timer/z.maxTimer, 0, 1);
+    ctx.save();
+    ctx.translate(z.x,z.y);
+    ctx.globalAlpha = 0.55*a;
+    ctx.beginPath(); ctx.arc(0,0,z.radius,0,TAU);
+    ctx.fillStyle = '#22c55e'; ctx.globalAlpha = 0.12*a; ctx.fill();
+    ctx.globalAlpha = 0.7*a;
+    ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 3;
+    const t = performance.now()/300;
+    for(let i=0;i<8;i++){
+      const ang = (i/8)*TAU + t*0.3;
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.quadraticCurveTo(Math.cos(ang+0.3)*z.radius*0.6, Math.sin(ang+0.3)*z.radius*0.6,
+                           Math.cos(ang)*z.radius, Math.sin(ang)*z.radius);
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawProjectiles(){
+  for (const p of projectiles){
+    ctx.save();
+    ctx.translate(p.x,p.y);
+    ctx.rotate(p.traveled*0.04);
+    ctx.beginPath(); ctx.arc(0,0,16,0,TAU);
+    const g = ctx.createRadialGradient(-5,-5,2,0,0,16);
+    g.addColorStop(0,'#a8a29e'); g.addColorStop(1,'#57534e');
+    ctx.fillStyle = g; ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=2; ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function statusBadgeIcon(c){
+  if (c.status === 'frozen') return theme().frozenIcon;
+  if (c.status === 'stunned') return '💫';
+  if (c.status === 'rooted') return '🌿';
+  if (c.status === 'invisible') return '⛰️';
+  if (c.status === 'leaping') return '🦘';
+  if (c.status === 'aimingBoulder') return '🎯';
+  if (c.status === 'dashing') return '💨';
+  return null;
+}
+
+function drawCaughtOverlay(c){
+  const r = c.radius + 8;
+  const accent = theme().palette.accent;
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  ctx.beginPath(); ctx.arc(0,0,r,0,TAU);
+  const g = ctx.createRadialGradient(-r*0.3,-r*0.3,2,0,0,r);
+  g.addColorStop(0,'rgba(255,255,255,0.85)');
+  g.addColorStop(1, accent+'33');
+  ctx.fillStyle = g; ctx.fill();
+  ctx.globalAlpha = 0.85;
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1.2;
+  const seed = c.iceSeed || 0;
+  for(let i=0;i<3;i++){
+    const a1 = seed + i*2.1;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a1)*r*0.2, Math.sin(a1)*r*0.2);
+    ctx.lineTo(Math.cos(a1)*r*0.9, Math.sin(a1)*r*0.9);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawCharacter(c){
+  ctx.save();
+  ctx.translate(c.x, c.y);
+
+  ctx.beginPath();
+  ctx.ellipse(0, c.radius*0.85, c.radius*0.9, c.radius*0.32, 0, 0, TAU);
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fill();
+
+  let alpha = 1;
+  let scale = 1;
+  if (c.status === 'invisible') alpha = 0.32;
+  if (c.status === 'leaping') scale = 1.22;
+  ctx.globalAlpha = alpha;
+  ctx.scale(scale, scale);
+
+  if (c.team === 'chaser'){ drawChaserBody(c); drawChaserAbilityFX(c); }
+  else drawRunnerBody(c);
+
+  ctx.globalAlpha = 1;
+  ctx.scale(1/scale, 1/scale);
+
+  if (c.status === 'frozen') drawCaughtOverlay(c);
+
+  const badge = statusBadgeIcon(c);
+  if (badge){
+    ctx.font = '18px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(badge, 0, -c.radius-26);
+  } else {
+    const info = ABILITY_INFO[c.ability];
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.globalAlpha = 0.85;
+    ctx.fillText(info.icon, 0, -c.radius-20);
+    ctx.globalAlpha = 1;
+  }
+
+  if (c.isPlayer){
+    ctx.beginPath();
+    ctx.arc(0,0,c.radius+9,0,TAU);
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([5,5]);
+    ctx.lineDashOffset = -performance.now()/45;
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  ctx.restore();
+}
+
+/* ====================== CHIBI CHARACTER SYSTEM ======================
+   Shared limb/torso/head helpers used by every humanoid design (everyone
+   except the Factory Ghost, which floats). Walk-cycle animation comes from
+   c.walkCycle, advanced in updateCharacterMovement whenever a character is
+   actually moving — so legs/arms only swing when running, and freeze mid
+   stride the instant a character stops, gets stunned, or is frozen. */
+
+function drawChibiLegs(c, r, color){
+  const leaping = c.status === 'leaping';
+  const legW = r*0.26, legH = leaping ? r*0.28 : r*0.4;
+  const baseY = leaping ? r*0.18 : r*0.42;
+  const bobA = leaping ? 0 : Math.sin(c.walkCycle)*r*0.08;
+  const bobB = leaping ? 0 : Math.sin(c.walkCycle+Math.PI)*r*0.08;
+  ctx.fillStyle = color;
+  rrect(-r*0.30, baseY+bobA, legW, legH, legW*0.4); ctx.fill();
+  rrect(r*0.04, baseY+bobB, legW, legH, legW*0.4); ctx.fill();
+}
+function drawChibiArms(c, r, color){
+  const swingA = Math.sin(c.walkCycle+Math.PI)*r*0.16;
+  const swingB = Math.sin(c.walkCycle)*r*0.16;
+  ctx.fillStyle = color;
+  rrect(-r*0.66, -r*0.08+swingA, r*0.2, r*0.4, r*0.1); ctx.fill();
+  rrect(r*0.46, -r*0.08+swingB, r*0.2, r*0.4, r*0.1); ctx.fill();
+}
+function drawChibiTorso(r, color){
+  rrect(-r*0.44, -r*0.38, r*0.88, r*0.74, r*0.3);
+  ctx.fillStyle = color; ctx.fill();
+}
+function drawChibiHead(r, color, cy){
+  ctx.beginPath(); ctx.arc(0,cy,r*0.66,0,TAU);
+  ctx.fillStyle = color; ctx.fill();
+  ctx.beginPath(); ctx.arc(-r*0.2,cy-r*0.22, r*0.26, 0, TAU);
+  ctx.fillStyle = 'rgba(255,255,255,0.16)'; ctx.fill();
+  return cy;
+}
+function drawChibiEyes(r, cy, facing){
+  const ex = Math.cos(facing)*r*0.1, ey = Math.sin(facing)*r*0.07;
+  for (const side of [-1,1]){
+    const x = side*r*0.22+ex, y = cy-r*0.02+ey;
+    ctx.beginPath(); ctx.arc(x,y,r*0.13,0,TAU); ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.beginPath(); ctx.arc(x+ex*0.6, y+ey*0.6+r*0.02, r*0.06,0,TAU); ctx.fillStyle = '#1a1a1a'; ctx.fill();
+  }
+}
+
+/* ---- Frost Tundra ---- */
+function drawChaserFrost(c){
+  const r = c.radius;
+  drawChibiLegs(c, r, '#5b21b6');
+  drawChibiArms(c, r, '#6d28d9');
+  drawChibiTorso(r, '#7c3aed');
+  const cy = -r*0.95;
+  drawChibiHead(r, '#c4b5fd', cy);
+  ctx.fillStyle = '#ede9fe';
+  ctx.beginPath(); ctx.moveTo(-r*0.34,cy-r*0.5); ctx.lineTo(-r*0.16,cy-r*0.98); ctx.lineTo(-r*0.02,cy-r*0.48); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(r*0.34,cy-r*0.5); ctx.lineTo(r*0.16,cy-r*0.98); ctx.lineTo(r*0.02,cy-r*0.48); ctx.closePath(); ctx.fill();
+  drawChibiEyes(r, cy, c.facing);
+  ctx.strokeStyle = '#3b0764'; ctx.lineWidth = r*0.05; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-r*0.34,cy-r*0.22); ctx.lineTo(-r*0.1,cy-r*0.14); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(r*0.34,cy-r*0.22); ctx.lineTo(r*0.1,cy-r*0.14); ctx.stroke();
+}
+function drawRunnerSprite(c){
+  const r = c.radius;
+  drawChibiLegs(c, r, c.color);
+  drawChibiArms(c, r, c.color);
+  drawChibiTorso(r, c.color);
+  const cy = -r*0.95;
+  drawChibiHead(r, '#ffffff', cy);
+  ctx.fillStyle = c.color;
+  ctx.beginPath(); ctx.moveTo(-r*0.5,cy-r*0.5); ctx.lineTo(-r*0.62,cy-r*0.9); ctx.lineTo(-r*0.18,cy-r*0.58); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(r*0.5,cy-r*0.5); ctx.lineTo(r*0.62,cy-r*0.9); ctx.lineTo(r*0.18,cy-r*0.58); ctx.closePath(); ctx.fill();
+  drawChibiEyes(r, cy, c.facing);
+}
+
+/* ---- High School ---- */
+function drawChaserTeacher(c){
+  const r = c.radius;
+  drawChibiLegs(c, r, '#2b2d42');
+  drawChibiArms(c, r, '#3d3f63');
+  drawChibiTorso(r, '#3d3f63');
+  ctx.fillStyle = '#dc2626';
+  ctx.beginPath(); ctx.moveTo(-r*0.06,-r*0.3); ctx.lineTo(r*0.06,-r*0.3); ctx.lineTo(r*0.1,r*0.22); ctx.lineTo(0,r*0.34); ctx.lineTo(-r*0.1,r*0.22); ctx.closePath(); ctx.fill();
+  const cy = -r*0.95;
+  drawChibiHead(r, '#f4c89a', cy);
+  ctx.fillStyle = '#8a8d99';
+  ctx.beginPath(); ctx.arc(0,cy-r*0.18,r*0.68,Math.PI*1.02,Math.PI*1.98); ctx.fill();
+  drawChibiEyes(r*0.85, cy, c.facing);
+  ctx.strokeStyle = '#1f2430'; ctx.lineWidth = r*0.045;
+  ctx.beginPath(); ctx.arc(-r*0.22,cy-r*0.02,r*0.16,0,TAU); ctx.stroke();
+  ctx.beginPath(); ctx.arc(r*0.22,cy-r*0.02,r*0.16,0,TAU); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-r*0.06,cy-r*0.02); ctx.lineTo(r*0.06,cy-r*0.02); ctx.stroke();
+  ctx.strokeStyle = '#2b2d42'; ctx.lineWidth = r*0.05; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-r*0.36,cy-r*0.3); ctx.lineTo(-r*0.1,cy-r*0.18); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(r*0.36,cy-r*0.3); ctx.lineTo(r*0.1,cy-r*0.18); ctx.stroke();
+}
+function drawRunnerStudent(c){
+  const r = c.radius;
+  ctx.fillStyle = '#94a3b8';
+  rrect(-r*0.32,-r*0.4,r*0.64,r*0.5,r*0.14); ctx.fill();
+  drawChibiLegs(c, r, '#1f2937');
+  drawChibiArms(c, r, c.color);
+  drawChibiTorso(r, c.color);
+  ctx.fillStyle = '#fff';
+  rrect(-r*0.18,-r*0.4,r*0.36,r*0.14,r*0.04); ctx.fill();
+  const cy = -r*0.95;
+  drawChibiHead(r, '#f4c9a0', cy);
+  ctx.fillStyle = '#4b3621';
+  ctx.beginPath(); ctx.arc(0,cy-r*0.32,r*0.52,Math.PI*1.05,Math.PI*1.95); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-r*0.1,cy-r*0.62); ctx.lineTo(r*0.05,cy-r*0.84); ctx.lineTo(r*0.18,cy-r*0.6); ctx.closePath(); ctx.fill();
+  drawChibiEyes(r, cy, c.facing);
+  ctx.strokeStyle = '#4b3621'; ctx.lineWidth = r*0.04; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.arc(-r*0.22,cy-r*0.3,r*0.12,Math.PI*1.1,Math.PI*1.9); ctx.stroke();
+  ctx.beginPath(); ctx.arc(r*0.22,cy-r*0.3,r*0.12,Math.PI*1.1,Math.PI*1.9); ctx.stroke();
+}
+
+/* ---- Jungle ---- */
+function drawChaserGoblin(c){
+  const r = c.radius;
+  drawChibiLegs(c, r, '#365c1f');
+  drawChibiArms(c, r, '#4f7a2a');
+  drawChibiTorso(r, '#5c8a32');
+  ctx.fillStyle = '#7c4a24';
+  rrect(-r*0.3, r*0.05, r*0.6, r*0.32, r*0.08); ctx.fill();
+  const cy = -r*0.95;
+  drawChibiHead(r, '#5c8a32', cy);
+  ctx.fillStyle = '#f5f0e6';
+  ctx.beginPath(); ctx.moveTo(-r*0.18,cy+r*0.34); ctx.lineTo(-r*0.26,cy+r*0.52); ctx.lineTo(-r*0.08,cy+r*0.4); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(r*0.18,cy+r*0.34); ctx.lineTo(r*0.26,cy+r*0.52); ctx.lineTo(r*0.08,cy+r*0.4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#8a5a2b';
+  rrect(-r*0.5, cy-r*0.5, r, r*0.62, r*0.18); ctx.fill();
+  ctx.strokeStyle = '#5c3a1a'; ctx.lineWidth = r*0.04;
+  ctx.beginPath(); ctx.moveTo(-r*0.5,cy-r*0.18); ctx.lineTo(r*0.5,cy-r*0.18); ctx.stroke();
+  ctx.fillStyle = '#facc15';
+  ctx.beginPath(); ctx.arc(-r*0.22,cy-r*0.18,r*0.1,0,TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(r*0.22,cy-r*0.18,r*0.1,0,TAU); ctx.fill();
+  ctx.fillStyle = '#dc2626';
+  ctx.beginPath(); ctx.moveTo(0,cy-r*0.5); ctx.lineTo(-r*0.08,cy-r*0.9); ctx.lineTo(r*0.08,cy-r*0.9); ctx.closePath(); ctx.fill();
+}
+function drawRunnerTribal(c){
+  const r = c.radius;
+  drawChibiLegs(c, r, '#caa472');
+  drawChibiArms(c, r, '#caa472');
+  drawChibiTorso(r, '#caa472');
+  ctx.fillStyle = c.color;
+  rrect(-r*0.28, r*0.0, r*0.56, r*0.3, r*0.08); ctx.fill();
+  const cy = -r*0.95;
+  drawChibiHead(r, '#caa472', cy);
+  ctx.fillStyle = c.color;
+  rrect(-r*0.42, cy-r*0.18, r*0.84, r*0.32, r*0.12); ctx.fill();
+  ctx.fillStyle = '#1f2937';
+  ctx.beginPath(); ctx.arc(-r*0.2,cy-r*0.02,r*0.08,0,TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(r*0.2,cy-r*0.02,r*0.08,0,TAU); ctx.fill();
+  ctx.fillStyle = '#f5f5f4';
+  ctx.beginPath(); ctx.moveTo(0,cy-r*0.5); ctx.lineTo(-r*0.06,cy-r*0.84); ctx.lineTo(r*0.02,cy-r*0.6); ctx.closePath(); ctx.fill();
+}
+
+/* ---- Factory ---- */
+function drawChaserGhost(c){
+  const r = c.radius;
+  const bob = Math.sin(performance.now()/450)*r*0.06;
+  ctx.save();
+  ctx.translate(0, bob);
+  const g = ctx.createLinearGradient(0,-r*1.1,0,r*0.5);
+  g.addColorStop(0,'rgba(224,242,254,0.95)');
+  g.addColorStop(1,'rgba(148,197,233,0.5)');
+  ctx.beginPath();
+  ctx.arc(0,-r*0.1,r*0.88,Math.PI,0,false);
+  ctx.lineTo(r*0.88,r*0.18);
+  const waveCount=4, waveW=(r*1.76)/waveCount;
+  for(let i=0;i<=waveCount;i++){
+    const x = r*0.88 - i*waveW;
+    const y = (i%2===0) ? r*0.18 : r*0.42;
+    ctx.lineTo(x,y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#38bdf8';
+  ctx.beginPath(); ctx.arc(-r*0.26,-r*0.22,r*0.13,0,TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(r*0.26,-r*0.22,r*0.13,0,TAU); ctx.fill();
+  ctx.fillStyle = '#0c4a6e';
+  ctx.beginPath(); ctx.arc(-r*0.26,-r*0.16,r*0.055,0,TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(r*0.26,-r*0.16,r*0.055,0,TAU); ctx.fill();
+  ctx.fillStyle = 'rgba(12,74,110,0.65)';
+  ctx.beginPath(); ctx.ellipse(0,0,r*0.13,r*0.17,0,0,TAU); ctx.fill();
+  ctx.restore();
+}
+function drawRunnerWorker(c){
+  const r = c.radius;
+  drawChibiLegs(c, r, '#374151');
+  drawChibiArms(c, r, '#4b5563');
+  drawChibiTorso(r, '#4b5563');
+  ctx.fillStyle = c.color;
+  rrect(-r*0.1, -r*0.1, r*0.2, r*0.5, r*0.04); ctx.fill();
+  const cy = -r*0.95;
+  drawChibiHead(r, '#e7b88a', cy);
+  ctx.fillStyle = c.color;
+  ctx.beginPath(); ctx.arc(0,cy-r*0.12,r*0.7,Math.PI,0,false); ctx.fill();
+  rrect(-r*0.72,cy-r*0.14,r*1.44,r*0.12,r*0.04); ctx.fill();
+  ctx.fillStyle = '#fef3c7';
+  ctx.beginPath(); ctx.arc(0,cy-r*0.74,r*0.1,0,TAU); ctx.fill();
+  ctx.strokeStyle = '#1f2937'; ctx.lineWidth = r*0.05;
+  ctx.beginPath(); ctx.moveTo(-r*0.46,cy-r*0.04); ctx.lineTo(r*0.46,cy-r*0.04); ctx.stroke();
+  drawChibiEyes(r, cy, c.facing);
+}
+
+/* ---- theme dispatch ---- */
+function drawChaserBody(c){
+  const id = theme().id;
+  if (id === 'school') drawChaserTeacher(c);
+  else if (id === 'jungle') drawChaserGoblin(c);
+  else if (id === 'factory') drawChaserGhost(c);
+  else drawChaserFrost(c);
+}
+function drawRunnerBody(c){
+  const id = theme().id;
+  if (id === 'school') drawRunnerStudent(c);
+  else if (id === 'jungle') drawRunnerTribal(c);
+  else if (id === 'factory') drawRunnerWorker(c);
+  else drawRunnerSprite(c);
+}
+
+/* ---- shared chaser ability FX (aim line / dash trail), theme-tinted ---- */
+function drawChaserAbilityFX(c){
+  const r = c.radius;
+  const accent = theme().palette.accent;
+  if (c.status === 'aimingBoulder'){
+    ctx.beginPath(); ctx.arc(0,-r*1.05, r*0.4, 0, TAU);
+    ctx.fillStyle = '#78716c'; ctx.fill();
+    ctx.strokeStyle = accent; ctx.globalAlpha = 0.7; ctx.setLineDash([6,6]); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0,0);
+    ctx.lineTo(Math.cos(c.aimAngle)*CONFIG.abilities.boulderThrow.maxRange*0.55, Math.sin(c.aimAngle)*CONFIG.abilities.boulderThrow.maxRange*0.55);
+    ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
+  if (c.status === 'dashing'){
+    ctx.strokeStyle = accent; ctx.globalAlpha = 0.55; ctx.lineWidth = 4;
+    for(let i=1;i<=3;i++){
+      ctx.beginPath();
+      ctx.moveTo(-c.dashDir.x*r*1.4*i, -c.dashDir.y*r*1.4*i);
+      ctx.lineTo(-c.dashDir.x*r*1.4*i - c.dashDir.x*14, -c.dashDir.y*r*1.4*i - c.dashDir.y*14);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawWorld(){
+  drawArenaGround();
+  drawObstacles();
+  drawVineZones();
+  drawProjectiles();
+  for (const c of characters) drawCharacter(c);
+  drawParticles();
+}
+
+function drawMinimap(){
+  const w = minimapCanvas.width, h = minimapCanvas.height;
+  mctx.clearRect(0,0,w,h);
+  mctx.fillStyle = 'rgba(238,246,255,0.04)';
+  mctx.fillRect(0,0,w,h);
+  const sx = w / CONFIG.arena.width, sy = h / CONFIG.arena.height;
+  for (const c of characters){
+    mctx.beginPath();
+    mctx.arc(c.x*sx, c.y*sy, c.team==='chaser'? 5:3.4, 0, TAU);
+    mctx.fillStyle = c.status === 'frozen' ? '#7dd3fc' : c.color;
+    mctx.globalAlpha = c.status === 'frozen' ? 0.65 : 1;
+    mctx.fill();
+    mctx.globalAlpha = 1;
+    if (c.isPlayer){
+      mctx.strokeStyle = '#fff'; mctx.lineWidth = 1.5;
+      mctx.beginPath(); mctx.arc(c.x*sx, c.y*sy, 8, 0, TAU); mctx.stroke();
+    }
+  }
+  // viewport rect
+  mctx.strokeStyle = 'rgba(238,246,255,0.4)'; mctx.lineWidth = 1;
+  mctx.strokeRect(camera.x*sx, camera.y*sy, canvas.width*sx, canvas.height*sy);
+}
+
+function render(){
+  drawBackdrop();
+  if (phase === 'playing' || phase === 'paused'){
+    ctx.save();
+    ctx.translate(-camera.x, -camera.y);
+    drawWorld();
+    ctx.restore();
+    drawMinimap();
+  }
+  drawAmbient();
+}
+
+/* --------------------------- HUD UPDATE --------------------------- */
+function updateHUD(){
+  const p = playerChar();
+  if (!p) return;
+  const t = theme();
+
+  const timerPill = document.getElementById('timer-pill');
+  timerPill.textContent = fmtTime(timeRemaining);
+  timerPill.classList.toggle('urgent', timeRemaining <= 15);
+
+  const frozenOverlay = document.getElementById('frozen-overlay');
+  frozenOverlay.classList.toggle('hidden', p.status !== 'frozen');
+  if (p.status === 'frozen') frozenOverlay.innerHTML = t.frozenIcon+' '+t.caughtVerb+' &mdash; Pan to spectate or wait to be freed';
+
+  const dot = document.getElementById('role-dot');
+  const txt = document.getElementById('role-text');
+  dot.style.background = p.color;
+  txt.textContent = p.team === 'chaser' ? t.chaserShort : t.runnerShort;
+
+  runnerChars.forEach((r,i)=>{
+    const pawEl = document.getElementById('paw-'+i);
+    pawEl.classList.toggle('gone', r.status === 'frozen');
+    pawEl.textContent = r.status === 'frozen' ? t.frozenIcon : t.pawIcon;
+  });
+
+  const info = ABILITY_INFO[p.ability];
+  document.getElementById('ability-icon').textContent = info.icon;
+  document.getElementById('ability-label').textContent = info.name;
+  document.getElementById('ability-key-hint').textContent = isTouchDevice ? 'TAP' : 'SPACE / CLICK';
+  const ratio = p.cooldown>0 ? p.cooldown / info.cooldown : 0;
+  document.getElementById('ability-sweep').style.setProperty('--p', Math.round(ratio*100));
+  const btn = document.getElementById('ability-btn');
+  const ready = p.cooldown<=0 && !['stunned','rooted','frozen'].includes(p.status);
+  btn.classList.toggle('ready', ready);
+  btn.style.opacity = (p.status === 'frozen') ? 0.4 : 1;
+}
+
+/* --------------------------- MAIN LOOP --------------------------- */
+function loop(ts){
+  if (!lastTs) lastTs = ts;
+  let dt = (ts - lastTs) / 1000;
+  dt = Math.min(dt, 0.05);
+  lastTs = ts;
+
+  update(dt);
+  render();
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* --------------------------- FLOW CONTROL --------------------------- */
+function startMatchmaking(){
+  ensureAudio();
+  resolveTheme();
+  const t = theme();
+  phase = 'matchmaking';
+  showScreen('matchmaking');
+  const slots = document.querySelectorAll('#mm-slots .slot');
+  const statusEl = document.getElementById('mm-status');
+  slots.forEach(s=>s.classList.remove('filled'));
+  statusEl.textContent = 'Connecting to lobby…';
+
+  const messages = ['Connecting to lobby…','Found 1 of 4 players…','Found 2 of 4 players…','Found 3 of 4 players…','Landing in '+t.label+' '+t.icon+'…'];
+  let i = 0;
+  slots[0].classList.add('filled'); // "you"
+  const interval = setInterval(()=>{
+    i++;
+    if (i < messages.length){
+      statusEl.textContent = messages[i];
+      if (i <= 3) slots[i].classList.add('filled');
+    }
+    if (i >= messages.length){
+      clearInterval(interval);
+      beginReveal();
+    }
+  }, 420);
+}
+
+function beginReveal(){
+  const p = setupMatch();
+  const t = theme();
+  phase = 'reveal';
+  const isChaser = p.team === 'chaser';
+  const info = ABILITY_INFO[p.ability];
+
+  const badge = document.getElementById('reveal-badge');
+  badge.textContent = isChaser ? t.chaserShort : t.runnerShort;
+  badge.className = 'reveal-role-badge ' + (isChaser ? 'chaser':'runner');
+  badge.style.background = p.color + '33';
+  badge.style.color = p.color;
+  badge.style.borderColor = p.color + '66';
+  document.getElementById('reveal-title').innerHTML = isChaser
+    ? 'You are the <span class="glow" style="color:'+p.color+'">'+t.chaserName+'</span>'
+    : 'You are <span class="glow" style="color:'+p.color+'">'+p.name+'</span>';
+  document.getElementById('reveal-sub').textContent = isChaser
+    ? 'Catch every '+t.runnerShort.toLowerCase()+' at the same time to win — catch them one by one and their teammates will just free them again.'
+    : 'Getting caught isn\u2019t the end — a free teammate can save you. Your team wins if at least one '+t.runnerShort.toLowerCase()+' is still free when time runs out.';
+  document.getElementById('reveal-ability-icon').textContent = info.icon;
+  document.getElementById('reveal-ability-name').textContent = info.name;
+  document.getElementById('reveal-ability-desc').textContent = info.desc;
+  document.getElementById('reveal-meta').textContent = 'Arena: '+t.icon+' '+t.label+' · Cooldown: ' + info.cooldown + 's';
+
+  showScreen('reveal');
+  const card = document.getElementById('reveal-card');
+  card.classList.remove('shown');
+  requestAnimationFrame(()=> requestAnimationFrame(()=> card.classList.add('shown')));
+}
+
+function beginCountdown(){
+  phase = 'countdown';
+  showScreen('countdown');
+  let n = 3;
+  const numEl = document.getElementById('countdown-num');
+  numEl.textContent = n;
+  numEl.style.animation = 'none'; requestAnimationFrame(()=>{ numEl.style.animation = ''; });
+  SFX.countdown();
+  const interval = setInterval(()=>{
+    n--;
+    if (n > 0){
+      numEl.textContent = n;
+      numEl.style.animation = 'none'; requestAnimationFrame(()=>{ numEl.style.animation = ''; });
+      SFX.countdown();
+    } else {
+      numEl.textContent = 'GO!';
+      numEl.style.animation = 'none'; requestAnimationFrame(()=>{ numEl.style.animation = ''; });
+      SFX.go();
+      setTimeout(()=>{
+        clearInterval(interval);
+        beginPlay();
+      }, 420);
+    }
+  }, 800);
+}
+
+function beginPlay(){
+  phase = 'playing';
+  lastTs = 0;
+  showScreen(null);
+  hud.classList.remove('hidden');
+  if (isTouchDevice) touchControls.classList.remove('hidden');
+  resize(); // minimap canvas was display:none and measured 0x0 until now
+  updateCamera();
+  toast('Match started — good luck!');
+}
+
+function togglePause(){
+  if (phase === 'playing'){
+    phase = 'paused';
+    pauseOverlay.classList.remove('hidden');
+  } else if (phase === 'paused'){
+    phase = 'playing';
+    lastTs = 0;
+    pauseOverlay.classList.add('hidden');
+  }
+}
+
+/* --------------------------- BUTTON WIRING --------------------------- */
+document.getElementById('btn-find-match').addEventListener('click', startMatchmaking);
+document.getElementById('btn-ready').addEventListener('click', beginCountdown);
+document.getElementById('btn-play-again').addEventListener('click', startMatchmaking);
+document.getElementById('btn-main-menu').addEventListener('click', ()=>{ phase='menu'; showScreen('menu'); });
+document.getElementById('btn-resume').addEventListener('click', togglePause);
+document.getElementById('btn-quit').addEventListener('click', ()=>{
+  pauseOverlay.classList.add('hidden');
+  hud.classList.add('hidden');
+  touchControls.classList.add('hidden');
+  phase = 'menu';
+  showScreen('menu');
+});
+
+let selectedThemeChoice = 'random';
+document.querySelectorAll('#theme-picker .theme-chip').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    document.querySelectorAll('#theme-picker .theme-chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    selectedThemeChoice = chip.dataset.theme;
+  });
+});
+function resolveTheme(){
+  selectedTheme = selectedThemeChoice === 'random' ? choice(Object.keys(THEMES)) : selectedThemeChoice;
+}
+
+initAmbient();
+</script>
+</body>
+</html>
